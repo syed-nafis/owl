@@ -1,0 +1,55 @@
+[
+  {
+    "filename": "upload_2025-06-21T19-37-51-111Z_recording_20250621_103654.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-21T19-37-51-111Z_recording_20250621_103654.mp4",
+    "size": 35833552,
+    "timestamp": "2025-06-21T19:38:06.401Z",
+    "cameraIp": "unknown",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-21T19-41-42-698Z_segment_20250621_103942.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-21T19-41-42-698Z_segment_20250621_103942.mp4",
+    "size": 70724207,
+    "timestamp": "2025-06-21T10:41:42.544400",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-21T19-43-42-687Z_segment_20250621_104142.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-21T19-43-42-687Z_segment_20250621_104142.mp4",
+    "size": 67726413,
+    "timestamp": "2025-06-21T10:43:42.551177",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-21T19-44-17-928Z_segment_20250621_104342.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-21T19-44-17-928Z_segment_20250621_104342.mp4",
+    "size": 14890729,
+    "timestamp": "2025-06-21T10:44:10.178892",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-21T20-06-34-237Z_segment_20250621_110434.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-21T20-06-34-237Z_segment_20250621_110434.mp4",
+    "size": 63232832,
+    "timestamp": "2025-06-21T11:06:34.104583",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-21T20-07-09-353Z_segment_20250621_110634.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-21T20-07-09-353Z_segment_20250621_110634.mp4",
+    "size": 11615342,
+    "timestamp": "2025-06-21T11:06:57.144334",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  }
+]
