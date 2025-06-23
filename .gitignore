@@ -1,2 +1,8 @@
-
 server/videos/*
+server/yolo11x.pt
+serverface_images/*
+server/clips/*
+
+# But don't ignore the folders themselves (so Git keeps them)
+!server/face_images/.gitkeep
+!server/clips/.gitkeep
