@@ -7,6 +7,11 @@ const path = require('path');
 const { exec, spawn } = require('child_process');
 const multer = require('multer');
 const mysql = require('mysql2/promise');
+const ffmpeg = require('fluent-ffmpeg');
+const WebSocket = require('ws');
+
+// Set ffmpeg path
+ffmpeg.setFfmpegPath('/opt/homebrew/bin/ffmpeg');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -581,6 +586,13 @@ function saveVideoSegmentsData() {
 // Initialize on startup
 loadVideoSegmentsData();
 
+// Ensure clips directory exists
+const clipsDir = path.join(__dirname, 'clips');
+if (!fs.existsSync(clipsDir)) {
+  fs.mkdirSync(clipsDir, { recursive: true });
+  console.log('Created clips directory:', clipsDir);
+}
+
 // Schedule periodic storage cleanup
 setInterval(checkAndCleanupStorage, CLEANUP_INTERVAL);
 
@@ -940,36 +952,15 @@ app.post('/api/faces', faceUpload.single('image'), async (req, res) => {
     
     exec(`python3 "${pythonScript}" "${imagePath}"`, async (error, stdout, stderr) => {
       if (error) {
-        // Clean up the uploaded file
-        try {
-          fs.unlinkSync(imagePath);
-        } catch (cleanupError) {
-          console.error('Error cleaning up file:', cleanupError);
-        }
         console.error(`Error extracting face: ${error}`);
-        return res.status(500).json({ error: 'Failed to process face image. Please ensure the image contains a clear, well-lit face.' });
+        return res.status(500).json({ error: 'Failed to process face image' });
       }
       
       try {
         // Parse the face encoding from python script output
-        let faceData;
-        try {
-          faceData = JSON.parse(stdout);
-        } catch (parseError) {
-          console.error('Error parsing face data:', parseError, 'Output:', stdout);
-          throw new Error('Failed to process face data');
-        }
-        
+        const faceData = JSON.parse(stdout);
         if (!faceData.success) {
-          // Clean up the uploaded file
-          try {
-            fs.unlinkSync(imagePath);
-          } catch (cleanupError) {
-            console.error('Error cleaning up file:', cleanupError);
-          }
-          return res.status(400).json({ 
-            error: faceData.error || 'No face detected in the image. Please ensure the image contains a clear, well-lit face.' 
-          });
+          return res.status(400).json({ error: faceData.error || 'No face detected in the image' });
         }
         
         const faceEncoding = JSON.stringify(faceData.encoding);
@@ -1043,49 +1034,22 @@ app.post('/api/faces', faceUpload.single('image'), async (req, res) => {
           } catch (fsError) {
             await conn.rollback();
             console.error('File system error:', fsError);
-            // Clean up the uploaded file
-            try {
-              fs.unlinkSync(imagePath);
-            } catch (cleanupError) {
-              console.error('Error cleaning up file:', cleanupError);
-            }
-            res.status(500).json({ error: 'Failed to store face image. Please try again.' });
+            res.status(500).json({ error: 'Failed to store face image' });
           }
         } catch (dbError) {
           await conn.rollback();
-          console.error('Database error:', dbError);
-          // Clean up the uploaded file
-          try {
-            fs.unlinkSync(imagePath);
-          } catch (cleanupError) {
-            console.error('Error cleaning up file:', cleanupError);
-          }
-          res.status(500).json({ error: 'Failed to store face in database. Please try again.' });
+          throw dbError;
         } finally {
           conn.release();
         }
-      } catch (error) {
-        console.error('Error in face registration:', error);
-        // Clean up the uploaded file
-        try {
-          fs.unlinkSync(imagePath);
-        } catch (cleanupError) {
-          console.error('Error cleaning up file:', cleanupError);
-        }
-        res.status(500).json({ error: 'Server error processing face registration. Please try again.' });
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+        res.status(500).json({ error: 'Failed to store face in database' });
       }
     });
   } catch (err) {
     console.error('Error in face registration:', err);
-    // Clean up the uploaded file if it exists
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (cleanupError) {
-        console.error('Error cleaning up file:', cleanupError);
-      }
-    }
-    res.status(500).json({ error: 'Server error. Please try again.' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -1205,38 +1169,17 @@ app.post('/api/faces/:id/images', faceUpload.single('image'), async (req, res) =
     const imagePath = req.file.path;
     const pythonScript = path.join(__dirname, 'extract_face.py');
     
-    exec(`python3 "${pythonScript}" "${imagePath}"`, async (error, stdout, stderr) => {
+    exec(`python ${pythonScript} "${imagePath}"`, async (error, stdout, stderr) => {
       if (error) {
-        // Clean up the uploaded file
-        try {
-          fs.unlinkSync(imagePath);
-        } catch (cleanupError) {
-          console.error('Error cleaning up file:', cleanupError);
-        }
         console.error(`Error extracting face: ${error}`);
-        return res.status(500).json({ error: 'Failed to process face image. Please ensure the image contains a clear, well-lit face.' });
+        return res.status(500).json({ error: 'Failed to process face image' });
       }
       
       try {
         // Parse the face encoding from python script output
-        let faceData;
-        try {
-          faceData = JSON.parse(stdout);
-        } catch (parseError) {
-          console.error('Error parsing face data:', parseError, 'Output:', stdout);
-          throw new Error('Failed to process face data');
-        }
-        
+        const faceData = JSON.parse(stdout);
         if (!faceData.success) {
-          // Clean up the uploaded file
-          try {
-            fs.unlinkSync(imagePath);
-          } catch (cleanupError) {
-            console.error('Error cleaning up file:', cleanupError);
-          }
-          return res.status(400).json({ 
-            error: faceData.error || 'No face detected in the image. Please ensure the image contains a clear, well-lit face.' 
-          });
+          return res.status(400).json({ error: 'No face detected in the image' });
         }
         
         // Create a directory for this face if it doesn't exist
@@ -1251,51 +1194,25 @@ app.post('/api/faces/:id/images', faceUpload.single('image'), async (req, res) =
         
         // Insert into face_images table
         const conn = await dbPool.getConnection();
-        try {
-          const [result] = await conn.execute(
-            `INSERT INTO face_images (known_face_id, image_path) VALUES (?, ?)`,
-            [faceId, path.join(faceId.toString(), req.file.filename)]
-          );
-          
-          res.status(201).json({
-            id: result.insertId,
-            url: `/api/face_images/${faceId}/${req.file.filename}`,
-            message: 'Face image added successfully'
-          });
-        } catch (dbError) {
-          console.error('Database error:', dbError);
-          // Try to clean up the moved file
-          try {
-            fs.unlinkSync(newImagePath);
-          } catch (cleanupError) {
-            console.error('Error cleaning up moved file:', cleanupError);
-          }
-          res.status(500).json({ error: 'Failed to store face image in database. Please try again.' });
-        } finally {
-          conn.release();
-        }
-      } catch (error) {
-        console.error('Error processing additional face image:', error);
-        // Clean up the uploaded file
-        try {
-          fs.unlinkSync(imagePath);
-        } catch (cleanupError) {
-          console.error('Error cleaning up file:', cleanupError);
-        }
-        res.status(500).json({ error: 'Server error processing face image. Please try again.' });
+        const [result] = await conn.execute(
+          `INSERT INTO face_images (known_face_id, image_path) VALUES (?, ?)`,
+          [faceId, path.join(faceId.toString(), req.file.filename)]
+        );
+        conn.release();
+        
+        res.status(201).json({
+          id: result.insertId,
+          url: `/api/face_images/${faceId}/${req.file.filename}`,
+          message: 'Face image added successfully'
+        });
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+        res.status(500).json({ error: 'Failed to store face image in database' });
       }
     });
   } catch (err) {
     console.error('Error adding face image:', err);
-    // Clean up the uploaded file if it exists
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (cleanupError) {
-        console.error('Error cleaning up file:', cleanupError);
-      }
-    }
-    res.status(500).json({ error: 'Server error. Please try again.' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -1432,4 +1349,111 @@ app.post('/upload-face-image', faceUpload.single('image'), async (req, res) => {
 });
 
 // Serve temporary face images
+app.use('/api/face-temp', express.static(path.join(faceImagesDir, 'temp')));
+
+// Get video clip for a detection
+app.get('/api/clips/:detectionId', async (req, res) => {
+  if (!dbPool) {
+    return res.status(500).json({ error: 'Database not connected' });
+  }
+
+  try {
+    const detectionId = req.params.detectionId;
+    console.log(`Fetching clip for detection ${detectionId}`);
+
+    // Check if clip already exists
+    const clipName = `clip_${detectionId}.mp4`;
+    const clipPath = path.join(__dirname, 'clips', clipName);
+    
+    // If clip already exists, return it immediately
+    if (fs.existsSync(clipPath)) {
+      console.log(`Clip already exists for detection ${detectionId}`);
+      return res.json({ 
+        url: `/clips/${clipName}`,
+        cached: true
+      });
+    }
+
+    // Get detection and video info with correct column order
+    const [detections] = await dbPool.execute(`
+      SELECT 
+        d.*,
+        v.path,
+        v.filename,
+        v.camera_role,
+        v.duration as duration_seconds
+      FROM detections d
+      JOIN videos v ON d.video_id = v.video_id
+      WHERE d.detection_id = ?
+    `, [detectionId]);
+
+    if (!detections.length) {
+      console.log(`No detection found for ID ${detectionId}`);
+      return res.status(404).json({ error: 'Detection not found' });
+    }
+
+    const detection = detections[0];
+    console.log('Detection found:', detection);
+
+    // Handle both absolute and relative paths
+    let videoPath = detection.path;
+    if (!path.isAbsolute(videoPath)) {
+      videoPath = path.join(__dirname, videoPath);
+    }
+
+    // Check if video file exists
+    if (!fs.existsSync(videoPath)) {
+      console.log(`Video file not found: ${videoPath}`);
+      return res.status(404).json({ error: 'Video file not found' });
+    }
+    
+    // Calculate clip start and end times
+    const fps = 30; // Assuming 30 fps
+    const paddingSeconds = 5; // 5 seconds before and after
+    const startFrame = Math.max(0, detection.start_frame - (fps * paddingSeconds));
+    const endFrame = detection.end_frame + (fps * paddingSeconds);
+    
+    console.log('Generating clip with params:', {
+      videoPath,
+      clipPath,
+      startFrame,
+      endFrame,
+      fps,
+      duration: detection.duration_seconds
+    });
+
+    // Use fluent-ffmpeg to extract the clip
+    await new Promise((resolve, reject) => {
+      ffmpeg(videoPath)
+        .setStartTime(startFrame / fps)
+        .setDuration((endFrame - startFrame) / fps)
+        .output(clipPath)
+        .on('end', () => {
+          console.log('Clip generated successfully');
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error('Error generating clip:', err);
+          reject(err);
+        })
+        .run();
+    });
+
+    // Return the clip URL
+    res.json({ 
+      url: `/clips/${clipName}`,
+      startTime: startFrame / fps,
+      duration: (endFrame - startFrame) / fps,
+      cached: false
+    });
+
+  } catch (error) {
+    console.error('Error generating clip:', error);
+    res.status(500).json({ error: 'Failed to generate clip' });
+  }
+});
+
+// Serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/clips', express.static(path.join(__dirname, 'clips')));
 app.use('/api/face-temp', express.static(path.join(faceImagesDir, 'temp'))); 

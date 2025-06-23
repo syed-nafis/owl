@@ -8,6 +8,10 @@ Werkzeug>=2.3.7
 numpy>=1.26.0
 opencv-python>=4.8.0
 
+# Face detection (with fallbacks)
+dlib>=19.24.0; platform_system != "Darwin" or platform_machine != "arm64"
+face-recognition>=1.3.0; platform_system != "Darwin" or platform_machine != "arm64"
+
 # Database
 mysql-connector-python>=8.0.27
 
