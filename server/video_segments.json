@@ -51,5 +51,32 @@
     "cameraIp": "192.168.0.107",
     "hostname": "raspberrypi",
     "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-22T00-02-14-931Z_segment_20250621_150151.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-22T00-02-14-931Z_segment_20250621_150151.mp4",
+    "size": 37031555,
+    "timestamp": "2025-06-21T15:02:14.505446",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-23T16-52-46-515Z_segment_20250623_075046.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-23T16-52-46-515Z_segment_20250623_075046.mp4",
+    "size": 94882848,
+    "timestamp": "2025-06-23T07:52:46.256089",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-23T16-53-27-367Z_segment_20250623_075246.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-23T16-53-27-367Z_segment_20250623_075246.mp4",
+    "size": 9047220,
+    "timestamp": "2025-06-23T07:52:57.191941",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
   }
 ]

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,95 +6,41 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  RefreshControl,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
 
-// Mock data for timeline events
-const MOCK_EVENTS = [
-  {
-    id: '1',
-    type: 'motion',
-    camera: 'Front Door',
-    timestamp: '2023-06-10T14:30:00',
-    description: 'Motion detected',
-    thumbnail: 'https://via.placeholder.com/100x100/333/fff?text=Motion',
-    priority: 'medium',
-  },
-  {
-    id: '2',
-    type: 'person',
-    camera: 'Front Door',
-    timestamp: '2023-06-10T14:32:00',
-    description: 'Person detected',
-    thumbnail: 'https://via.placeholder.com/100x100/333/fff?text=Person',
-    priority: 'high',
-    personName: null,
-  },
-  {
-    id: '3',
-    type: 'person',
-    camera: 'Kitchen',
-    timestamp: '2023-06-10T12:15:00',
-    description: 'Known person detected',
-    thumbnail: 'https://via.placeholder.com/100x100/333/fff?text=Adam',
-    priority: 'medium',
-    personName: 'Adam',
-  },
-  {
-    id: '4',
-    type: 'motion',
-    camera: 'Backyard',
-    timestamp: '2023-06-09T20:45:00',
-    description: 'Motion detected',
-    thumbnail: 'https://via.placeholder.com/100x100/333/fff?text=Motion',
-    priority: 'low',
-  },
-  {
-    id: '5',
-    type: 'person',
-    camera: 'Front Door',
-    timestamp: '2023-06-09T18:20:00',
-    description: 'Unknown person detected',
-    thumbnail: 'https://via.placeholder.com/100x100/333/fff?text=Unknown',
-    priority: 'high',
-    personName: null,
-  },
-  {
-    id: '6',
-    type: 'system',
-    timestamp: '2023-06-09T17:30:00',
-    description: 'Camera offline',
-    camera: 'Living Room',
-    priority: 'high',
-  },
-  {
-    id: '7',
-    type: 'person',
-    camera: 'Kitchen',
-    timestamp: '2023-06-09T15:40:00',
-    description: 'Known person detected',
-    thumbnail: 'https://via.placeholder.com/100x100/333/fff?text=Sarah',
-    priority: 'medium',
-    personName: 'Sarah',
-  },
-  {
-    id: '8',
-    type: 'system',
-    timestamp: '2023-06-08T09:15:00',
-    description: 'System update completed',
-    priority: 'low',
-  },
-];
+// Server configuration - using the same values as in other screens
+const HOME_SERVER_IP = '192.168.0.102'; // Your home server IP
+const HOME_SERVER_PORT = 9000; // Your home server port
+const SERVER_URL = `http://${HOME_SERVER_IP}:${HOME_SERVER_PORT}`;
+
+// Define interface for timeline events
+interface TimelineEvent {
+  detection_id: string;
+  detection_type: string;
+  object_class: string;
+  camera_role: string;
+  detection_time: string;
+  confidence: number;
+  video_id: string;
+  filename: string;
+  path: string;
+  bounding_box: string;
+  person_name?: string;
+}
 
 // Group events by date
-const groupEventsByDate = (events) => {
-  const grouped = {};
+const groupEventsByDate = (events: TimelineEvent[]) => {
+  const grouped: Record<string, TimelineEvent[]> = {};
   
   events.forEach(event => {
-    const date = new Date(event.timestamp);
+    const date = new Date(event.detection_time);
     const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     
     if (!grouped[dateStr]) {
@@ -112,73 +58,157 @@ const groupEventsByDate = (events) => {
 };
 
 export default function TimelineScreen() {
-  const [groupedEvents, setGroupedEvents] = useState(groupEventsByDate(MOCK_EVENTS));
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [groupedEvents, setGroupedEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filterType, setFilterType] = useState<string | null>(null);
   const colorScheme = useColorScheme();
   
-  const formatTime = (dateString) => {
+  // Fetch timeline events from server
+  const fetchTimelineEvents = async () => {
+    try {
+      setLoading(true);
+      
+      // Build query parameters
+      let url = `${SERVER_URL}/timeline`;
+      if (filterType) {
+        url += `?type=${filterType}`;
+      }
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.timeline) {
+        setEvents(data.timeline);
+        setGroupedEvents(groupEventsByDate(data.timeline));
+      } else {
+        setEvents([]);
+        setGroupedEvents([]);
+      }
+    } catch (error) {
+      console.error('Error fetching timeline events:', error);
+      Alert.alert('Error', 'Failed to load timeline events. Please try again later.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+  
+  // Initial load
+  useEffect(() => {
+    fetchTimelineEvents();
+  }, [filterType]);
+  
+  // Handle refresh
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchTimelineEvents();
+  };
+  
+  const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
   
-  const getEventIcon = (type, priority) => {
+  const getEventIcon = (type: string, objectClass: string) => {
+    // Determine priority based on detection type
+    let priority = 'medium';
+    
+    if (type === 'person' && objectClass === 'person') {
+      priority = 'high';
+    } else if (type === 'animal') {
+      priority = 'medium';
+    }
+    
+    // Choose icon based on detection type and object class
     switch(type) {
-      case 'motion':
-        return <Ionicons name="move" size={24} color={priorityColors[priority]} />;
       case 'person':
         return <Ionicons name="person" size={24} color={priorityColors[priority]} />;
-      case 'system':
-        return <Ionicons name="cog" size={24} color={priorityColors[priority]} />;
+      case 'animal':
+        return <Ionicons name="paw" size={24} color={priorityColors[priority]} />;
+      case 'object':
+        return <Ionicons name="cube" size={24} color={priorityColors[priority]} />;
       default:
         return <Ionicons name="alert-circle" size={24} color={priorityColors[priority]} />;
     }
   };
   
-  const renderTimelineEvent = ({ item }) => (
+  const getEventDescription = (event: TimelineEvent) => {
+    if (event.detection_type === 'person') {
+      if (event.person_name && event.person_name !== 'Unknown') {
+        return `${event.person_name} detected`;
+      }
+      return 'Person detected';
+    }
+    
+    return `${event.object_class} detected`;
+  };
+  
+  const getThumbnailUrl = (event: TimelineEvent) => {
+    // In a real implementation, you would generate thumbnails from video frames
+    // For now, we'll use placeholder images based on detection type
+    const baseUrl = 'https://via.placeholder.com/100x100/333/fff?text=';
+    
+    if (event.detection_type === 'person') {
+      if (event.person_name && event.person_name !== 'Unknown') {
+        return `${baseUrl}${encodeURIComponent(event.person_name)}`;
+      }
+      return `${baseUrl}Person`;
+    }
+    
+    return `${baseUrl}${encodeURIComponent(event.object_class)}`;
+  };
+  
+  const renderTimelineEvent = ({ item }: { item: TimelineEvent }) => (
     <TouchableOpacity 
       style={[
         styles.eventCard, 
         { backgroundColor: Colors[colorScheme].card, borderColor: Colors[colorScheme].cardBorder }
       ]}
-      onPress={() => console.log('View event details', item.id)}
+      onPress={() => console.log('View event details', item.detection_id)}
     >
       <View style={styles.eventTime}>
         <Text style={[styles.timeText, { color: Colors[colorScheme].gray }]}>
-          {formatTime(item.timestamp)}
+          {formatTime(item.detection_time)}
         </Text>
       </View>
       
-      <View style={[styles.eventLine, { backgroundColor: priorityColors[item.priority] }]} />
+      <View style={[styles.eventLine, { backgroundColor: priorityColors[item.detection_type === 'person' ? 'high' : 'medium'] }]} />
       
       <View style={styles.eventContent}>
         <View style={styles.eventHeader}>
-          {getEventIcon(item.type, item.priority)}
+          {getEventIcon(item.detection_type, item.object_class)}
           <View style={styles.headerTextContainer}>
             <Text style={[styles.eventTitle, { color: Colors[colorScheme].text }]}>
-              {item.description}
+              {getEventDescription(item)}
             </Text>
-            {item.camera && (
+            {item.camera_role && (
               <Text style={[styles.eventSubtitle, { color: Colors[colorScheme].gray }]}>
-                {item.camera}
+                {item.camera_role}
               </Text>
             )}
           </View>
         </View>
         
-        {item.thumbnail && (
-          <View style={styles.thumbnailContainer}>
-            <Image source={{ uri: item.thumbnail }} style={styles.thumbnail} />
-            {item.personName && (
-              <View style={styles.nameTag}>
-                <Text style={styles.nameText}>{item.personName}</Text>
-              </View>
-            )}
-          </View>
-        )}
+        <View style={styles.thumbnailContainer}>
+          <Image source={{ uri: getThumbnailUrl(item) }} style={styles.thumbnail} />
+          {item.person_name && item.person_name !== 'Unknown' && (
+            <View style={styles.nameTag}>
+              <Text style={styles.nameText}>{item.person_name}</Text>
+            </View>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
   
-  const renderDateSection = ({ item }) => (
+  const renderDateSection = ({ item }: { item: any }) => (
     <View style={styles.dateSection}>
       <View style={styles.dateSectionHeader}>
         <Text style={[styles.dateText, { color: Colors[colorScheme].text }]}>{item.date}</Text>
@@ -187,11 +217,55 @@ export default function TimelineScreen() {
       <FlatList
         data={item.data}
         renderItem={renderTimelineEvent}
-        keyExtractor={(event) => event.id}
+        keyExtractor={(event) => event.detection_id.toString()}
         scrollEnabled={false}
       />
     </View>
   );
+  
+  // Show filter options
+  const showFilterOptions = () => {
+    Alert.alert(
+      "Filter Timeline",
+      "Select event type to display",
+      [
+        {
+          text: "All Events",
+          onPress: () => setFilterType(null),
+        },
+        {
+          text: "People",
+          onPress: () => setFilterType('person'),
+        },
+        {
+          text: "Animals",
+          onPress: () => setFilterType('animal'),
+        },
+        {
+          text: "Objects",
+          onPress: () => setFilterType('object'),
+        },
+        {
+          text: "Cancel",
+          style: "cancel"
+        }
+      ]
+    );
+  };
+  
+  // Get filter button text
+  const getFilterButtonText = () => {
+    switch(filterType) {
+      case 'person':
+        return 'People';
+      case 'animal':
+        return 'Animals';
+      case 'object':
+        return 'Objects';
+      default:
+        return 'All Events';
+    }
+  };
   
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
@@ -200,18 +274,52 @@ export default function TimelineScreen() {
       <View style={styles.filterContainer}>
         <TouchableOpacity 
           style={[styles.filterButton, { backgroundColor: Colors[colorScheme].primary }]}
+          onPress={showFilterOptions}
         >
-          <Text style={styles.filterButtonText}>All Events</Text>
+          <Text style={styles.filterButtonText}>{getFilterButtonText()}</Text>
           <Ionicons name="chevron-down" size={16} color="#fff" />
         </TouchableOpacity>
       </View>
       
-      <FlatList
-        data={groupedEvents}
-        renderItem={renderDateSection}
-        keyExtractor={(item) => item.date}
-        contentContainerStyle={styles.listContainer}
-      />
+      {loading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+          <Text style={[styles.loadingText, { color: Colors[colorScheme].text }]}>
+            Loading timeline...
+          </Text>
+        </View>
+      ) : groupedEvents.length > 0 ? (
+        <FlatList
+          data={groupedEvents}
+          renderItem={renderDateSection}
+          keyExtractor={(item) => item.date}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[Colors[colorScheme].primary]}
+              tintColor={Colors[colorScheme].primary}
+            />
+          }
+        />
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="calendar-outline" size={64} color={Colors[colorScheme].gray} />
+          <Text style={[styles.emptyText, { color: Colors[colorScheme].text }]}>
+            No events found
+          </Text>
+          <Text style={[styles.emptySubtext, { color: Colors[colorScheme].gray }]}>
+            Events will appear here when detected
+          </Text>
+          <TouchableOpacity 
+            style={[styles.refreshButton, { backgroundColor: Colors[colorScheme].primary }]}
+            onPress={handleRefresh}
+          >
+            <Text style={styles.refreshButtonText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -250,7 +358,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   dateSection: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   dateSectionHeader: {
     flexDirection: 'row',
@@ -258,8 +366,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   dateText: {
+    fontWeight: 'bold',
     fontSize: 16,
-    fontWeight: '600',
     marginRight: 12,
   },
   dateLine: {
@@ -268,19 +376,19 @@ const styles = StyleSheet.create({
   },
   eventCard: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 16,
     borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
   },
   eventTime: {
     width: 60,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    paddingLeft: 12,
     alignItems: 'center',
-    justifyContent: 'flex-start',
   },
   timeText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   eventLine: {
@@ -293,40 +401,77 @@ const styles = StyleSheet.create({
   eventHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
   headerTextContainer: {
-    marginLeft: 10,
     flex: 1,
+    marginLeft: 8,
   },
   eventTitle: {
-    fontSize: 15,
     fontWeight: '600',
+    fontSize: 15,
   },
   eventSubtitle: {
     fontSize: 13,
     marginTop: 2,
   },
   thumbnailContainer: {
-    marginTop: 10,
     position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   thumbnail: {
-    height: 150,
     width: '100%',
-    borderRadius: 6,
+    height: 120,
+    borderRadius: 8,
   },
   nameTag: {
     position: 'absolute',
     bottom: 8,
     left: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
   nameText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '500',
     fontSize: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  refreshButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  refreshButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 }); 

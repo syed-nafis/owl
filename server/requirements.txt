@@ -1,8 +1,15 @@
-picamera2==0.3.12
-opencv-python-headless==4.7.0.72
-numpy==1.24.3
-flask==2.3.3
-requests==2.31.0
-socketio==0.2.1
-python-socketio==5.8.0
-Werkzeug==2.3.7 
+# Core dependencies
+flask>=2.0.1
+python-socketio>=5.5.0
+requests>=2.26.0
+Werkzeug>=2.3.7
+
+# Updated for Python 3.13 compatibility
+numpy>=1.26.0
+opencv-python>=4.8.0
+
+# Database
+mysql-connector-python>=8.0.27
+
+# Optional ML components - comment these out if installation fails
+# ultralytics>=8.0.0  # For YOLOv11x 

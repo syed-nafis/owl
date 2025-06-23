@@ -4,8 +4,9 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const multer = require('multer');
+const mysql = require('mysql2/promise');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -55,10 +56,27 @@ let cameraStatus = {
 // Database to track video segments
 let videoSegments = [];
 
-// Make sure storage directory exists
-if (!fs.existsSync(STORAGE_PATH)) {
-  fs.mkdirSync(STORAGE_PATH, { recursive: true });
+// Database configuration
+const dbConfig = {
+  host: 'localhost',
+  user: 'root',
+  password: '',  // Set your MySQL password here
+  database: 'owl_security'
+};
+
+let dbPool;
+
+async function initDb() {
+  try {
+    dbPool = mysql.createPool(dbConfig);
+    console.log('Database connection pool initialized');
+  } catch (error) {
+    console.error('Error initializing database pool:', error);
+  }
 }
+
+// Initialize database connection
+initDb();
 
 // Routes
 app.get('/status', (req, res) => {
@@ -298,8 +316,13 @@ app.post('/upload-video', upload.single('video'), (req, res) => {
     metadata: metadata
   });
   
-  // Run ML processing in background if enabled
-  processVideoWithML(segmentInfo);
+  // Add the video to the detection database
+  addVideoToDetectionDb(segmentInfo).then(videoId => {
+    if (videoId) {
+      // Trigger video processing in the background
+      triggerVideoProcessing(videoId, segmentInfo);
+    }
+  });
   
   res.json({
     success: true,
@@ -566,4 +589,847 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Video storage path: ${STORAGE_PATH}`);
   console.log(`Max storage configured: ${MAX_STORAGE_GB} GB`);
-}); 
+});
+
+// Add video to detection database
+async function addVideoToDetectionDb(videoInfo) {
+  if (!dbPool) {
+    console.error('Database pool not initialized');
+    return null;
+  }
+  
+  try {
+    const cameraRole = getCameraRole(videoInfo.cameraIp);
+    
+    const [result] = await dbPool.execute(
+      `INSERT INTO videos (filename, path, created_at, camera_ip, camera_role, duration, size)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        videoInfo.filename,
+        videoInfo.path,
+        new Date(videoInfo.timestamp),
+        videoInfo.cameraIp,
+        cameraRole,
+        videoInfo.duration,
+        videoInfo.size
+      ]
+    );
+    
+    console.log(`Added video to detection database with ID: ${result.insertId}`);
+    return result.insertId;
+  } catch (error) {
+    console.error('Error adding video to detection database:', error);
+    return null;
+  }
+}
+
+// Get camera role based on IP
+function getCameraRole(cameraIp) {
+  if (cameraStatus.connectedCameras[cameraIp] && cameraStatus.connectedCameras[cameraIp].role) {
+    return cameraStatus.connectedCameras[cameraIp].role;
+  }
+  return 'unknown';
+}
+
+// Trigger video processing for object and face detection
+function triggerVideoProcessing(videoId, videoInfo) {
+  const scriptPath = path.join(__dirname, 'video_processor.py');
+  const videoPath = videoInfo.path;
+  const cameraRole = getCameraRole(videoInfo.cameraIp);
+  
+  // Run the processing script
+  const command = `python3 ${scriptPath} --video "${videoPath}" --camera-role "${cameraRole}"`;
+  
+  exec(command, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error processing video: ${error.message}`);
+      return;
+    }
+    if (stderr) {
+      console.error(`Video processing stderr: ${stderr}`);
+    }
+    console.log(`Video processing output: ${stdout}`);
+    
+    // Notify clients that processing is complete
+    io.emit('video-processed', {
+      videoId: videoId,
+      filename: videoInfo.filename
+    });
+  });
+}
+
+// Add these new API endpoints for the detection system
+
+// Get timeline events
+app.get('/timeline', async (req, res) => {
+  if (!dbPool) {
+    return res.status(500).json({ error: 'Database not connected' });
+  }
+  
+  try {
+    const { startDate, endDate, type, camera } = req.query;
+    
+    let query = `
+      SELECT d.*, v.filename, v.path 
+      FROM detections d
+      JOIN videos v ON d.video_id = v.video_id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    
+    if (startDate) {
+      query += ' AND d.detection_time >= ?';
+      params.push(new Date(startDate));
+    }
+    
+    if (endDate) {
+      query += ' AND d.detection_time <= ?';
+      params.push(new Date(endDate));
+    }
+    
+    if (type) {
+      query += ' AND d.detection_type = ?';
+      params.push(type);
+    }
+    
+    if (camera) {
+      query += ' AND d.camera_role = ?';
+      params.push(camera);
+    }
+    
+    query += ' ORDER BY d.detection_time DESC LIMIT 100';
+    
+    const [rows] = await dbPool.execute(query, params);
+    
+    res.json({ timeline: rows });
+  } catch (error) {
+    console.error('Error fetching timeline:', error);
+    res.status(500).json({ error: 'Failed to fetch timeline data' });
+  }
+});
+
+// Get faces detected
+app.get('/faces-detected', async (req, res) => {
+  if (!dbPool) {
+    return res.status(500).json({ error: 'Database not connected' });
+  }
+  
+  try {
+    const { name, startDate, endDate, camera } = req.query;
+    
+    let query = `
+      SELECT f.*, v.filename, v.path 
+      FROM faces f
+      JOIN videos v ON f.video_id = v.video_id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    
+    if (name) {
+      query += ' AND f.person_name LIKE ?';
+      params.push(`%${name}%`);
+    }
+    
+    if (startDate) {
+      query += ' AND f.detection_time >= ?';
+      params.push(new Date(startDate));
+    }
+    
+    if (endDate) {
+      query += ' AND f.detection_time <= ?';
+      params.push(new Date(endDate));
+    }
+    
+    if (camera) {
+      query += ' AND f.camera_role = ?';
+      params.push(camera);
+    }
+    
+    query += ' ORDER BY f.detection_time DESC LIMIT 100';
+    
+    const [rows] = await dbPool.execute(query, params);
+    
+    res.json({ faces: rows });
+  } catch (error) {
+    console.error('Error fetching faces:', error);
+    res.status(500).json({ error: 'Failed to fetch faces data' });
+  }
+});
+
+// Get known faces
+app.get('/known-faces', async (req, res) => {
+  if (!dbPool) {
+    return res.status(500).json({ error: 'Database not connected' });
+  }
+  
+  try {
+    const conn = await dbPool.getConnection();
+    const [knownFaces] = await conn.execute('SELECT * FROM known_faces');
+    conn.release();
+    
+    // Don't send the face encoding in the response (it's large)
+    const faces = knownFaces.map(face => {
+      const { face_encoding, ...faceData } = face;
+      return faceData;
+    });
+    
+    res.json({ knownFaces: faces });
+  } catch (error) {
+    console.error('Error fetching known faces:', error);
+    res.status(500).json({ error: 'Failed to fetch known faces' });
+  }
+});
+
+// Add new known face
+app.post('/add-known-face', upload.single('image'), async (req, res) => {
+  if (!dbPool) {
+    return res.status(500).json({ error: 'Database not connected' });
+  }
+  
+  try {
+    const { name, role, access_bedroom, access_living_room, access_kitchen, access_front_door } = req.body;
+    
+    if (!req.file || !name) {
+      return res.status(400).json({ error: 'Face image and name are required' });
+    }
+    
+    // Process the uploaded image to extract face encoding
+    const scriptPath = path.join(__dirname, 'extract_face.py');
+    const imagePath = req.file.path;
+    
+    exec(`python3 ${scriptPath} "${imagePath}"`, async (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error extracting face: ${error.message}`);
+        return res.status(500).json({ error: 'Failed to process face image' });
+      }
+      
+      try {
+        // Parse the face encoding from stdout
+        const face_encoding = stdout.trim();
+        
+        if (!face_encoding || face_encoding === 'No face detected') {
+          return res.status(400).json({ error: 'No face detected in the image' });
+        }
+        
+        // Insert into database
+        const [result] = await dbPool.execute(
+          `INSERT INTO known_faces 
+           (name, role, access_bedroom, access_living_room, access_kitchen, access_front_door, face_encoding)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            name, 
+            role || 'Family', 
+            access_bedroom === 'true', 
+            access_living_room === 'true', 
+            access_kitchen === 'true', 
+            access_front_door === 'true',
+            face_encoding
+          ]
+        );
+        
+        res.json({ 
+          success: true, 
+          message: 'Face added successfully',
+          faceId: result.insertId
+        });
+      } catch (dbError) {
+        console.error('Error adding known face to database:', dbError);
+        res.status(500).json({ error: 'Failed to add face to database' });
+      }
+    });
+  } catch (error) {
+    console.error('Error adding known face:', error);
+    res.status(500).json({ error: 'Failed to add known face' });
+  }
+});
+
+// Update known face
+app.put('/update-known-face/:id', async (req, res) => {
+  if (!dbPool) {
+    return res.status(500).json({ error: 'Database not connected' });
+  }
+  
+  try {
+    const { id } = req.params;
+    const { name, role, access_bedroom, access_living_room, access_kitchen, access_front_door } = req.body;
+    
+    await dbPool.execute(
+      `UPDATE known_faces 
+       SET name = ?, role = ?, 
+           access_bedroom = ?, access_living_room = ?, 
+           access_kitchen = ?, access_front_door = ?
+       WHERE known_face_id = ?`,
+      [
+        name, 
+        role, 
+        access_bedroom === 'true', 
+        access_living_room === 'true', 
+        access_kitchen === 'true', 
+        access_front_door === 'true',
+        id
+      ]
+    );
+    
+    res.json({ success: true, message: 'Face updated successfully' });
+  } catch (error) {
+    console.error('Error updating known face:', error);
+    res.status(500).json({ error: 'Failed to update known face' });
+  }
+});
+
+// Delete known face
+app.delete('/delete-known-face/:id', async (req, res) => {
+  if (!dbPool) {
+    return res.status(500).json({ error: 'Database not connected' });
+  }
+  
+  try {
+    const { id } = req.params;
+    
+    await dbPool.execute('DELETE FROM face_matches WHERE known_face_id = ?', [id]);
+    await dbPool.execute('DELETE FROM known_faces WHERE known_face_id = ?', [id]);
+    
+    res.json({ success: true, message: 'Face deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting known face:', error);
+    res.status(500).json({ error: 'Failed to delete known face' });
+  }
+});
+
+// Set up storage for face images
+const faceImagesDir = path.join(__dirname, 'face_images');
+
+// Ensure face_images directory exists
+if (!fs.existsSync(faceImagesDir)) {
+  fs.mkdirSync(faceImagesDir, { recursive: true });
+}
+
+// Configure multer for face image uploads
+const faceUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, faceImagesDir);
+    },
+    filename: (req, file, cb) => {
+      cb(null, Date.now() + '-face.jpg');
+    }
+  })
+});
+
+// Face registration and management APIs
+app.post('/api/faces', faceUpload.single('image'), async (req, res) => {
+  try {
+    const { 
+      name, 
+      role,
+      access_bedroom,
+      access_living_room,
+      access_kitchen,
+      access_front_door
+    } = req.body;
+    
+    if (!req.file || !name) {
+      return res.status(400).json({ error: 'Image and name are required' });
+    }
+    
+    // Process the face image to extract encodings
+    const imagePath = req.file.path;
+    const pythonScript = path.join(__dirname, 'extract_face.py');
+    
+    exec(`python3 "${pythonScript}" "${imagePath}"`, async (error, stdout, stderr) => {
+      if (error) {
+        // Clean up the uploaded file
+        try {
+          fs.unlinkSync(imagePath);
+        } catch (cleanupError) {
+          console.error('Error cleaning up file:', cleanupError);
+        }
+        console.error(`Error extracting face: ${error}`);
+        return res.status(500).json({ error: 'Failed to process face image. Please ensure the image contains a clear, well-lit face.' });
+      }
+      
+      try {
+        // Parse the face encoding from python script output
+        let faceData;
+        try {
+          faceData = JSON.parse(stdout);
+        } catch (parseError) {
+          console.error('Error parsing face data:', parseError, 'Output:', stdout);
+          throw new Error('Failed to process face data');
+        }
+        
+        if (!faceData.success) {
+          // Clean up the uploaded file
+          try {
+            fs.unlinkSync(imagePath);
+          } catch (cleanupError) {
+            console.error('Error cleaning up file:', cleanupError);
+          }
+          return res.status(400).json({ 
+            error: faceData.error || 'No face detected in the image. Please ensure the image contains a clear, well-lit face.' 
+          });
+        }
+        
+        const faceEncoding = JSON.stringify(faceData.encoding);
+        
+        // Insert face into database
+        const conn = await dbPool.getConnection();
+        
+        try {
+          await conn.beginTransaction();
+          
+          // Insert into known_faces table with access permissions
+          const [result] = await conn.execute(
+            `INSERT INTO known_faces 
+            (name, role, face_encoding, access_bedroom, access_living_room, access_kitchen, access_front_door) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              name, 
+              role || 'Unknown', 
+              faceEncoding,
+              access_bedroom === 'true',
+              access_living_room === 'true',
+              access_kitchen === 'true',
+              access_front_door === 'true'
+            ]
+          );
+          
+          const knownFaceId = result.insertId;
+          
+          // Create a directory for this face
+          const faceFolderPath = path.join(faceImagesDir, knownFaceId.toString());
+          try {
+            // Create directory if it doesn't exist
+            if (!fs.existsSync(faceFolderPath)) {
+              fs.mkdirSync(faceFolderPath, { recursive: true });
+            }
+            
+            // Move the uploaded image to the face folder
+            const newImagePath = path.join(faceFolderPath, req.file.filename);
+            fs.renameSync(imagePath, newImagePath);
+            
+            // Insert into face_images table
+            await conn.execute(
+              `INSERT INTO face_images (known_face_id, image_path) VALUES (?, ?)`,
+              [knownFaceId, path.join(knownFaceId.toString(), req.file.filename)]
+            );
+            
+            await conn.commit();
+            
+            const successMessage = `Face registered successfully:
+              - ID: ${knownFaceId}
+              - Name: ${name}
+              - Role: ${role}
+              - Image: ${req.file.filename}
+              - Access: bedroom=${access_bedroom}, living_room=${access_living_room}, kitchen=${access_kitchen}, front_door=${access_front_door}
+            `;
+            console.log('\x1b[32m%s\x1b[0m', successMessage); // Green color
+            
+            res.status(201).json({ 
+              id: knownFaceId, 
+              name, 
+              role,
+              image: `/api/face_images/${knownFaceId}/${req.file.filename}`,
+              message: 'Face registered successfully',
+              accessAreas: {
+                bedroom: access_bedroom === 'true',
+                living_room: access_living_room === 'true',
+                kitchen: access_kitchen === 'true',
+                front_door: access_front_door === 'true'
+              }
+            });
+          } catch (fsError) {
+            await conn.rollback();
+            console.error('File system error:', fsError);
+            // Clean up the uploaded file
+            try {
+              fs.unlinkSync(imagePath);
+            } catch (cleanupError) {
+              console.error('Error cleaning up file:', cleanupError);
+            }
+            res.status(500).json({ error: 'Failed to store face image. Please try again.' });
+          }
+        } catch (dbError) {
+          await conn.rollback();
+          console.error('Database error:', dbError);
+          // Clean up the uploaded file
+          try {
+            fs.unlinkSync(imagePath);
+          } catch (cleanupError) {
+            console.error('Error cleaning up file:', cleanupError);
+          }
+          res.status(500).json({ error: 'Failed to store face in database. Please try again.' });
+        } finally {
+          conn.release();
+        }
+      } catch (error) {
+        console.error('Error in face registration:', error);
+        // Clean up the uploaded file
+        try {
+          fs.unlinkSync(imagePath);
+        } catch (cleanupError) {
+          console.error('Error cleaning up file:', cleanupError);
+        }
+        res.status(500).json({ error: 'Server error processing face registration. Please try again.' });
+      }
+    });
+  } catch (err) {
+    console.error('Error in face registration:', err);
+    // Clean up the uploaded file if it exists
+    if (req.file) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error('Error cleaning up file:', cleanupError);
+      }
+    }
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// Get all registered faces
+app.get('/api/faces', async (req, res) => {
+  try {
+    const conn = await dbPool.getConnection();
+    const [registeredFaces] = await conn.execute(
+      `SELECT 
+        kf.known_face_id as id, 
+        kf.name, 
+        kf.role,
+        kf.access_bedroom, 
+        kf.access_living_room, 
+        kf.access_kitchen, 
+        kf.access_front_door,
+        (SELECT image_path FROM face_images 
+         WHERE known_face_id = kf.known_face_id 
+         ORDER BY image_id DESC LIMIT 1) as image_path
+      FROM known_faces kf`
+    );
+    conn.release();
+    
+    // Format the response
+    const formattedFaces = registeredFaces.map(face => ({
+      id: face.id,
+      name: face.name,
+      role: face.role || 'Unknown',
+      image: face.image_path ? `/api/face_images/${face.id}/${path.basename(face.image_path)}` : null,
+      accessAreas: {
+        bedroom: !!face.access_bedroom,
+        living_room: !!face.access_living_room,
+        kitchen: !!face.access_kitchen,
+        front_door: !!face.access_front_door
+      }
+    }));
+    
+    res.json(formattedFaces);
+  } catch (err) {
+    console.error('Error fetching faces:', err);
+    res.status(500).json({ error: 'Failed to fetch faces' });
+  }
+});
+
+// Delete a face
+app.delete('/api/faces/:id', async (req, res) => {
+  try {
+    const faceId = req.params.id;
+    const conn = await dbPool.getConnection();
+    
+    // Get the face images
+    const [faceImages] = await conn.execute(
+      `SELECT image_path FROM face_images WHERE known_face_id = ?`,
+      [faceId]
+    );
+    
+    // Delete from database
+    await conn.execute(
+      `DELETE FROM face_images WHERE known_face_id = ?`,
+      [faceId]
+    );
+    
+    await conn.execute(
+      `DELETE FROM known_faces WHERE known_face_id = ?`,
+      [faceId]
+    );
+    
+    conn.release();
+    
+    // Delete image files
+    const faceFolderPath = path.join(faceImagesDir, faceId.toString());
+    if (fs.existsSync(faceFolderPath)) {
+      fs.rmSync(faceFolderPath, { recursive: true, force: true });
+    }
+    
+    res.json({ message: 'Face deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting face:', err);
+    res.status(500).json({ error: 'Failed to delete face' });
+  }
+});
+
+// Get all images for a specific face
+app.get('/api/faces/:id/images', async (req, res) => {
+  try {
+    const faceId = req.params.id;
+    const conn = await dbPool.getConnection();
+    
+    const [images] = await conn.execute(
+      `SELECT image_id, image_path FROM face_images WHERE known_face_id = ?`,
+      [faceId]
+    );
+    conn.release();
+    
+    const formattedImages = images.map(image => ({
+      id: image.image_id,
+      url: `/api/face_images/${faceId}/${path.basename(image.image_path)}`
+    }));
+    
+    res.json(formattedImages);
+  } catch (err) {
+    console.error('Error fetching face images:', err);
+    res.status(500).json({ error: 'Failed to fetch face images' });
+  }
+});
+
+// Add additional image to an existing face
+app.post('/api/faces/:id/images', faceUpload.single('image'), async (req, res) => {
+  try {
+    const faceId = req.params.id;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image is required' });
+    }
+    
+    // Process the face image to extract encodings
+    const imagePath = req.file.path;
+    const pythonScript = path.join(__dirname, 'extract_face.py');
+    
+    exec(`python3 "${pythonScript}" "${imagePath}"`, async (error, stdout, stderr) => {
+      if (error) {
+        // Clean up the uploaded file
+        try {
+          fs.unlinkSync(imagePath);
+        } catch (cleanupError) {
+          console.error('Error cleaning up file:', cleanupError);
+        }
+        console.error(`Error extracting face: ${error}`);
+        return res.status(500).json({ error: 'Failed to process face image. Please ensure the image contains a clear, well-lit face.' });
+      }
+      
+      try {
+        // Parse the face encoding from python script output
+        let faceData;
+        try {
+          faceData = JSON.parse(stdout);
+        } catch (parseError) {
+          console.error('Error parsing face data:', parseError, 'Output:', stdout);
+          throw new Error('Failed to process face data');
+        }
+        
+        if (!faceData.success) {
+          // Clean up the uploaded file
+          try {
+            fs.unlinkSync(imagePath);
+          } catch (cleanupError) {
+            console.error('Error cleaning up file:', cleanupError);
+          }
+          return res.status(400).json({ 
+            error: faceData.error || 'No face detected in the image. Please ensure the image contains a clear, well-lit face.' 
+          });
+        }
+        
+        // Create a directory for this face if it doesn't exist
+        const faceFolderPath = path.join(faceImagesDir, faceId.toString());
+        if (!fs.existsSync(faceFolderPath)) {
+          fs.mkdirSync(faceFolderPath);
+        }
+        
+        // Move the uploaded image to the face folder
+        const newImagePath = path.join(faceFolderPath, req.file.filename);
+        fs.renameSync(imagePath, newImagePath);
+        
+        // Insert into face_images table
+        const conn = await dbPool.getConnection();
+        try {
+          const [result] = await conn.execute(
+            `INSERT INTO face_images (known_face_id, image_path) VALUES (?, ?)`,
+            [faceId, path.join(faceId.toString(), req.file.filename)]
+          );
+          
+          res.status(201).json({
+            id: result.insertId,
+            url: `/api/face_images/${faceId}/${req.file.filename}`,
+            message: 'Face image added successfully'
+          });
+        } catch (dbError) {
+          console.error('Database error:', dbError);
+          // Try to clean up the moved file
+          try {
+            fs.unlinkSync(newImagePath);
+          } catch (cleanupError) {
+            console.error('Error cleaning up moved file:', cleanupError);
+          }
+          res.status(500).json({ error: 'Failed to store face image in database. Please try again.' });
+        } finally {
+          conn.release();
+        }
+      } catch (error) {
+        console.error('Error processing additional face image:', error);
+        // Clean up the uploaded file
+        try {
+          fs.unlinkSync(imagePath);
+        } catch (cleanupError) {
+          console.error('Error cleaning up file:', cleanupError);
+        }
+        res.status(500).json({ error: 'Server error processing face image. Please try again.' });
+      }
+    });
+  } catch (err) {
+    console.error('Error adding face image:', err);
+    // Clean up the uploaded file if it exists
+    if (req.file) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error('Error cleaning up file:', cleanupError);
+      }
+    }
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// Serve face images
+app.use('/api/face_images', express.static(faceImagesDir));
+
+// Stream video from Pi camera (MJPEG)
+app.get('/api/camera-stream', (req, res) => {
+  // Set headers for MJPEG stream
+  res.writeHead(200, {
+    'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
+    'Cache-Control': 'no-cache',
+    'Connection': 'close',
+    'Pragma': 'no-cache'
+  });
+
+  // Start the Pi camera stream
+  const streamProcess = spawn('python', [
+    path.join(__dirname, 'pi_camera.py'),
+    '--stream-mjpeg'
+  ]);
+  
+  let isClientConnected = true;
+  
+  // Send stream data to client
+  streamProcess.stdout.on('data', (data) => {
+    if (isClientConnected) {
+      try {
+        res.write(data);
+      } catch (error) {
+        isClientConnected = false;
+        streamProcess.kill();
+      }
+    }
+  });
+  
+  // Handle errors
+  streamProcess.stderr.on('data', (data) => {
+    console.error(`Stream error: ${data}`);
+  });
+  
+  // Clean up when client disconnects
+  req.on('close', () => {
+    isClientConnected = false;
+    streamProcess.kill();
+    console.log('Client disconnected from stream');
+  });
+});
+
+// Route to capture image from Pi camera
+app.post('/api/capture-from-pi', async (req, res) => {
+  try {
+    const timestamp = Date.now();
+    const outputPath = path.join(faceImagesDir, `pi_capture_${timestamp}.jpg`);
+    
+    // Execute the Python script to capture from Pi camera
+    exec(`python ${__dirname}/pi_camera.py --capture "${outputPath}"`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error capturing from Pi: ${error}`);
+        return res.status(500).json({ error: 'Failed to capture from Pi camera' });
+      }
+      
+      res.json({ 
+        success: true,
+        imagePath: `/api/face_images/pi_capture_${timestamp}.jpg`
+      });
+    });
+  } catch (err) {
+    console.error('Error capturing from Pi:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Handle uploads of face images from the Pi camera
+app.post('/upload-face-image', faceUpload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+    
+    // Parse metadata if available
+    let metadata = {};
+    try {
+      if (req.body.metadata) {
+        metadata = JSON.parse(req.body.metadata);
+      }
+    } catch (error) {
+      console.error('Error parsing metadata:', error);
+    }
+    
+    // Get name from metadata or use a default
+    const name = metadata.name || 'unknown';
+    
+    // Create a directory with the name if it doesn't exist
+    const nameDir = path.join(faceImagesDir, 'temp', name.replace(/[^a-z0-9]/gi, '_').toLowerCase());
+    if (!fs.existsSync(nameDir)) {
+      fs.mkdirSync(nameDir, { recursive: true });
+    }
+    
+    // Move the uploaded image to the name directory
+    const originalPath = req.file.path;
+    const filename = req.file.filename;
+    const newPath = path.join(nameDir, filename);
+    
+    fs.renameSync(originalPath, newPath);
+    
+    // Store information about the captured image
+    const imageInfo = {
+      name: name,
+      path: newPath,
+      relativePath: path.relative(faceImagesDir, newPath),
+      timestamp: metadata.timestamp || new Date().toISOString(),
+      camera_ip: metadata.camera_ip || 'unknown',
+      hostname: metadata.hostname || 'unknown'
+    };
+    
+    console.log(`Face image captured and saved: ${name} (${imageInfo.relativePath})`);
+    
+    // Return the URL to access this image
+    const imageUrl = `/api/face-temp/${encodeURIComponent(name)}/${filename}`;
+    
+    res.json({
+      success: true,
+      message: 'Face image uploaded successfully',
+      image_url: imageUrl,
+      name: name,
+      timestamp: imageInfo.timestamp
+    });
+    
+  } catch (error) {
+    console.error('Error processing face image upload:', error);
+    res.status(500).json({ error: 'Server error processing image upload' });
+  }
+});
+
+// Serve temporary face images
+app.use('/api/face-temp', express.static(path.join(faceImagesDir, 'temp'))); 

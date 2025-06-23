@@ -26,7 +26,7 @@ DEFAULT_WIDTH = 1280
 DEFAULT_HEIGHT = 720
 DEFAULT_FRAMERATE = 30
 DEFAULT_PORT = 8000
-DEFAULT_SEGMENT_MINUTES = 10
+DEFAULT_SEGMENT_MINUTES = 2
 DEFAULT_FORMAT = 'mp4'  # Video format: mp4 is good for ML processing
 MAX_LOCAL_STORAGE_GB = 2  # Maximum local storage in GB before cleanup
 
@@ -72,6 +72,9 @@ def init_camera(width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT, framerate=DEFAULT_FR
         )
         camera.configure(config)
         camera.start()
+        
+        # Wait for camera to warm up
+        time.sleep(2)
         
         logger.info(f"Camera initialized: {width}x{height} @ {framerate}fps")
         return True
@@ -185,7 +188,7 @@ def cleanup_old_recordings():
             return
             
         # Get all mp4 files in recordings directory
-        files = [os.path.join(local_storage_path, f) for f in os.listdir(local_storage_path) 
+        files = [os.path.join(local_storage_path, f) for f in os.listdir(local_storage_path)
                 if f.endswith('.mp4')]
         
         # Sort by creation time (oldest first)
@@ -223,29 +226,39 @@ def cleanup_old_recordings():
 # Generate camera frames
 def generate_frames():
     while stream_active:
-        if camera is None:
+        try:
+            if camera is None:
+                time.sleep(0.1)
+                continue
+            
+            # Capture a frame
+            frame = camera.capture_array()
+            
+            # Convert to BGR (OpenCV format)
+            if frame.shape[2] == 3:  # RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            
+            # Add timestamp
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cv2.putText(frame, timestamp, (10, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
+            # Encode frame as JPEG
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                continue
+            
+            # Convert to bytes and yield for streaming
+            frame_bytes = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            
+            # Small delay to maintain framerate
+            time.sleep(1.0/DEFAULT_FRAMERATE)
+            
+        except Exception as e:
+            logger.error(f"Error generating frame: {e}")
             time.sleep(0.1)
-            continue
-            
-        # Capture a frame
-        frame = camera.capture_array()
-        
-        # Convert to BGR (OpenCV format)
-        if frame.shape[2] == 3:  # RGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            
-        # Add timestamp
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cv2.putText(frame, timestamp, (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        
-        # Encode frame as JPEG
-        ret, buffer = cv2.imencode('.jpg', frame)
-        
-        # Convert to bytes and yield for streaming
-        frame_bytes = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 # Start continuous recording with segments
 def start_continuous_recording(segment_minutes=DEFAULT_SEGMENT_MINUTES):
@@ -263,7 +276,7 @@ def start_continuous_recording(segment_minutes=DEFAULT_SEGMENT_MINUTES):
     
     # Start the recording thread
     recording_thread = threading.Thread(
-        target=continuous_recording_thread, 
+        target=continuous_recording_thread,
         args=(segment_minutes,)
     )
     recording_thread.daemon = True
@@ -309,9 +322,9 @@ def continuous_recording_thread(segment_minutes):
             # Set up video writer
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             out = cv2.VideoWriter(
-                output_file, 
-                fourcc, 
-                DEFAULT_FRAMERATE, 
+                output_file,
+                fourcc,
+                DEFAULT_FRAMERATE,
                 (DEFAULT_WIDTH, DEFAULT_HEIGHT)
             )
             
@@ -329,7 +342,7 @@ def continuous_recording_thread(segment_minutes):
                     
                 # Add timestamp
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cv2.putText(frame, timestamp, (10, 30), 
+                cv2.putText(frame, timestamp, (10, 30),
                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 
                 # Write frame to video
@@ -481,13 +494,32 @@ def get_status():
 def start_stream():
     global stream_active, status
     
-    stream_active = True
-    status['streaming'] = True
-    
-    return jsonify({
-        'success': True,
-        'message': 'Stream started'
-    })
+    try:
+        # Make sure camera is initialized
+        if camera is None:
+            success = init_camera()
+            if not success:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to initialize camera'
+                })
+        
+        # Wait for camera to be ready
+        time.sleep(0.5)
+        
+        stream_active = True
+        status['streaming'] = True
+        
+        return jsonify({
+            'success': True,
+            'message': 'Stream started'
+        })
+    except Exception as e:
+        logger.error(f"Error starting stream: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 @app.route('/stop-stream', methods=['POST'])
 def stop_stream():
@@ -525,6 +557,146 @@ def stream():
         generate_frames(),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
+
+# Capture an image from the camera
+@app.route('/capture', methods=['POST'])
+def capture_image_endpoint():
+    try:
+        import json
+        from flask import request
+        
+        # Parse request data
+        data = request.json if request.is_json else {}
+        name = data.get('name', 'unknown')
+        timestamp = data.get('timestamp', datetime.datetime.now().isoformat())
+        
+        # Create a filename based on name and timestamp
+        safe_name = "".join([c if c.isalnum() else "_" for c in name])
+        filename = f"capture_{safe_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        
+        # Create directory paths
+        captures_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "captures")
+        output_path = os.path.join(captures_dir, filename)
+        
+        # Ensure captures directory exists
+        os.makedirs(captures_dir, exist_ok=True)
+        
+        # Capture the image
+        if camera:
+            # Capture from the camera
+            frame = camera.capture_array()
+            
+            # Convert to BGR (OpenCV format) if needed
+            if frame.shape[2] == 3:  # RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            
+            # Write the image locally
+            cv2.imwrite(output_path, frame)
+            
+            logger.info(f"Image captured and saved to {output_path}")
+            
+            # Upload the image to the main server if connected
+            server_image_url = None
+            if connected_to_server:
+                try:
+                    # Send the image to the main server
+                    with open(output_path, 'rb') as img_file:
+                        files = {'image': (filename, img_file, 'image/jpeg')}
+                        metadata = {
+                            'name': name,
+                            'timestamp': timestamp,
+                            'camera_ip': get_local_ip(),
+                            'hostname': socket.gethostname()
+                        }
+                        
+                        response = requests.post(
+                            f"{server_url}/upload-face-image",
+                            files=files,
+                            data={'metadata': json.dumps(metadata)}
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            server_image_url = result.get('image_url')
+                            logger.info(f"Image uploaded to server: {server_image_url}")
+                        else:
+                            logger.error(f"Failed to upload image to server: {response.status_code}")
+                except Exception as e:
+                    logger.error(f"Error uploading image to server: {e}")
+            
+            # Continue video recording if already in progress
+            # (No need to interrupt recording, it's a separate process)
+            
+            # Return success response with path to the image
+            return jsonify({
+                'success': True,
+                'image_url': f'/captures/{filename}',
+                'server_image_url': server_image_url,
+                'name': name,
+                'timestamp': timestamp
+            })
+        else:
+            # Fallback for testing without camera
+            logger.warning("Camera not available, creating test image")
+            
+            # Create a test image
+            img = np.zeros((720, 1280, 3), dtype=np.uint8)
+            cv2.putText(img, f"Test Image: {name}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            cv2.putText(img, f"Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            
+            # Save the test image
+            cv2.imwrite(output_path, img)
+            
+            logger.info(f"Test image created and saved to {output_path}")
+            
+            # Simulate server upload
+            server_image_url = None
+            if connected_to_server:
+                try:
+                    # Send the image to the main server
+                    with open(output_path, 'rb') as img_file:
+                        files = {'image': (filename, img_file, 'image/jpeg')}
+                        metadata = {
+                            'name': name,
+                            'timestamp': timestamp,
+                            'camera_ip': get_local_ip(),
+                            'hostname': socket.gethostname()
+                        }
+                        
+                        response = requests.post(
+                            f"{server_url}/upload-face-image",
+                            files=files,
+                            data={'metadata': json.dumps(metadata)}
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            server_image_url = result.get('image_url')
+                            logger.info(f"Test image uploaded to server: {server_image_url}")
+                except Exception as e:
+                    logger.error(f"Error uploading test image to server: {e}")
+            
+            # Return success response with path to the test image
+            return jsonify({
+                'success': True,
+                'image_url': f'/captures/{filename}',
+                'server_image_url': server_image_url,
+                'name': name,
+                'timestamp': timestamp
+            })
+    
+    except Exception as e:
+        logger.error(f"Error capturing image: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Serve static files from captures directory
+@app.route('/captures/<path:filename>')
+def serve_capture(filename):
+    from flask import send_from_directory
+    return send_from_directory('captures', filename)
 
 # Socket.IO event handlers
 @sio.event
@@ -573,7 +745,7 @@ def main():
     parser.add_argument('--width', type=int, default=DEFAULT_WIDTH, help='Video width')
     parser.add_argument('--height', type=int, default=DEFAULT_HEIGHT, help='Video height')
     parser.add_argument('--fps', type=int, default=DEFAULT_FRAMERATE, help='Video framerate')
-    parser.add_argument('--segment', type=int, default=DEFAULT_SEGMENT_MINUTES, 
+    parser.add_argument('--segment', type=int, default=DEFAULT_SEGMENT_MINUTES,
                        help='Segment length in minutes')
     
     args = parser.parse_args()
@@ -598,4 +770,15 @@ def main():
     app.run(host='0.0.0.0', port=args.port, debug=False, threaded=True)
 
 if __name__ == '__main__':
-    main() 
+    main()
+
+
+
+
+
+
+
+
+
+
+
