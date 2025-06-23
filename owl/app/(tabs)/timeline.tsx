@@ -8,12 +8,14 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
-  Alert
+  Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
+import { Video } from 'expo-av';
 
 // Server configuration - using the same values as in other screens
 const HOME_SERVER_IP = '192.168.0.102'; // Your home server IP
@@ -63,6 +65,10 @@ export default function TimelineScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filterType, setFilterType] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
+  const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isLoadingClip, setIsLoadingClip] = useState(false);
   const colorScheme = useColorScheme();
   
   // Fetch timeline events from server
@@ -171,12 +177,15 @@ export default function TimelineScreen() {
         styles.eventCard, 
         { backgroundColor: Colors[colorScheme].card, borderColor: Colors[colorScheme].cardBorder }
       ]}
-      onPress={() => console.log('View event details', item.detection_id)}
+      onPress={() => handleEventPress(item)}
     >
       <View style={styles.eventTime}>
         <Text style={[styles.timeText, { color: Colors[colorScheme].gray }]}>
           {formatTime(item.detection_time)}
         </Text>
+        <View style={[styles.cameraRoleTag, { backgroundColor: Colors[colorScheme].primary }]}>
+          <Text style={styles.cameraRoleText}>{item.camera_role}</Text>
+        </View>
       </View>
       
       <View style={[styles.eventLine, { backgroundColor: priorityColors[item.detection_type === 'person' ? 'high' : 'medium'] }]} />
@@ -188,11 +197,6 @@ export default function TimelineScreen() {
             <Text style={[styles.eventTitle, { color: Colors[colorScheme].text }]}>
               {getEventDescription(item)}
             </Text>
-            {item.camera_role && (
-              <Text style={[styles.eventSubtitle, { color: Colors[colorScheme].gray }]}>
-                {item.camera_role}
-              </Text>
-            )}
           </View>
         </View>
         
@@ -267,6 +271,45 @@ export default function TimelineScreen() {
     }
   };
   
+  const handleEventPress = async (event: TimelineEvent) => {
+    try {
+      setIsLoadingClip(true);
+      setSelectedEvent(event);
+      setIsVideoModalVisible(true);
+
+      // Request the clip from the server
+      const response = await fetch(`${SERVER_URL}/api/clips/${event.detection_id}`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch video clip');
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        setVideoUrl(`${SERVER_URL}${data.url}`);
+      } else {
+        throw new Error('No video clip available');
+      }
+    } catch (error) {
+      console.error('Error fetching video clip:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load video clip. Please try again later.',
+        [{ text: 'OK', onPress: () => setIsVideoModalVisible(false) }]
+      );
+    } finally {
+      setIsLoadingClip(false);
+    }
+  };
+
+  const closeVideoModal = () => {
+    setIsVideoModalVisible(false);
+    setSelectedEvent(null);
+    setVideoUrl(null);
+  };
+  
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
@@ -320,6 +363,70 @@ export default function TimelineScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isVideoModalVisible}
+        onRequestClose={closeVideoModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: Colors[colorScheme].card }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={closeVideoModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: Colors[colorScheme].text }]}>
+                {selectedEvent?.detection_type === 'person' && selectedEvent?.person_name
+                  ? `${selectedEvent.person_name} Detected`
+                  : `${selectedEvent?.object_class || 'Object'} Detected`}
+              </Text>
+              <View style={styles.headerSpacer} />
+            </View>
+
+            <View style={styles.videoContainer}>
+              {isLoadingClip ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+                  <Text style={[styles.loadingText, { color: Colors[colorScheme].text }]}>
+                    Loading clip...
+                  </Text>
+                </View>
+              ) : videoUrl ? (
+                <Video
+                  style={styles.video}
+                  source={{ uri: videoUrl }}
+                  useNativeControls
+                  shouldPlay
+                  resizeMode="contain"
+                  isLooping={false}
+                />
+              ) : (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={48} color={Colors[colorScheme].danger} />
+                  <Text style={[styles.errorText, { color: Colors[colorScheme].text }]}>
+                    Failed to load video clip
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {selectedEvent && (
+              <View style={styles.eventDetails}>
+                <Text style={[styles.detailText, { color: Colors[colorScheme].text }]}>
+                  Time: {new Date(selectedEvent.detection_time).toLocaleString()}
+                </Text>
+                <Text style={[styles.detailText, { color: Colors[colorScheme].text }]}>
+                  Camera: {selectedEvent.camera_role}
+                </Text>
+                <Text style={[styles.detailText, { color: Colors[colorScheme].text }]}>
+                  Confidence: {Math.round(selectedEvent.confidence * 100)}%
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -376,19 +483,32 @@ const styles = StyleSheet.create({
   },
   eventCard: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 12,
     borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
+    maxHeight: 80,
   },
   eventTime: {
-    width: 60,
-    paddingVertical: 16,
+    width: 80,
+    paddingVertical: 12,
     paddingLeft: 12,
     alignItems: 'center',
   },
   timeText: {
     fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  cameraRoleTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  cameraRoleText: {
+    color: '#fff',
+    fontSize: 10,
     fontWeight: '500',
   },
   eventLine: {
@@ -401,7 +521,6 @@ const styles = StyleSheet.create({
   eventHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
   },
   headerTextContainer: {
     flex: 1,
@@ -409,11 +528,7 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     fontWeight: '600',
-    fontSize: 15,
-  },
-  eventSubtitle: {
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 14,
   },
   thumbnailContainer: {
     position: 'relative',
@@ -473,5 +588,62 @@ const styles = StyleSheet.create({
   refreshButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.2)',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  headerSpacer: {
+    width: 32,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+  },
+  videoContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+  },
+  eventDetails: {
+    padding: 16,
+  },
+  detailText: {
+    fontSize: 14,
+    marginBottom: 8,
   },
 }); 
