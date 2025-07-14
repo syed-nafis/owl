@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "expo-device": "^7.1.4"
   }
 }

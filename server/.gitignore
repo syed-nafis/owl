@@ -1,0 +1,70 @@
+# Debug files
+debug_*.jpg
+debug_*.png
+debug_*.jpeg
+
+# Temporary files
+temp/
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.bak2
+
+# Environment files
+.env
+.env.local
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node modules
+node_modules/
+
+# Virtual environment
+env/
+venv/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Pickle files
+*.pkl.bak
+
+# Log files
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large model files (keep only in specific directories)
+*.pt
+*.keras
+*.onnx
+*.h5
+*.pb
+
+# Video files (except specific test files)
+*.mp4
+*.avi
+*.mov
+*.mkv
+!test_video.mp4
+
+# Face detection temporary results
+face_images/temp/*/debug_*
+face_images/debug_*
+detection_result_*.jpg 
