@@ -1,11 +1,13 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity } from 'react-native';
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
 
   return (
     <Tabs
@@ -25,6 +27,18 @@ export default function TabLayout() {
           fontWeight: 'bold',
         },
         headerTintColor: Colors[colorScheme].text,
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => router.push('/notifications')}
+            style={{ marginRight: 20, marginTop: 10 }}
+          >
+            <Ionicons
+              name="notifications"
+              size={24}
+              color={Colors[colorScheme].text}
+            />
+          </TouchableOpacity>
+        ),
       }}>
       <Tabs.Screen
         name="index"

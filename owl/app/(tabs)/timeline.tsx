@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,19 +10,34 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
+import { SERVER_CONFIG, loadServerUrl } from '../../constants/Config';
 
-// Server configuration - using the same values as in other screens
-const HOME_SERVER_IP = '192.168.0.102'; // Your home server IP
-const HOME_SERVER_PORT = 9000; // Your home server port
-const SERVER_URL = `http://${HOME_SERVER_IP}:${HOME_SERVER_PORT}`;
+// Server configuration - using the central config
+let SERVER_URL = SERVER_CONFIG.serverUrl;
 
 // Define interface for timeline events
+interface DoorAccessInfo {
+  isDoorAccess: boolean;
+  eventType: string;
+  personNames: string[];
+  doorOpened: boolean;
+  accessDenied: boolean;
+  detectionSource: string;
+  sessionId: string | null;
+  buttonPress: boolean;
+  timestamp: string;
+  cameraRole: string;
+  message: string;
+}
+
 interface TimelineEvent {
   detection_id: string;
   detection_type: string;
@@ -35,6 +50,16 @@ interface TimelineEvent {
   path: string;
   bounding_box: string;
   person_name?: string;
+  display_name?: string;
+  doorAccessInfo?: DoorAccessInfo;
+}
+
+// Define pagination interface
+interface Pagination {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 // Group events by date
@@ -64,23 +89,101 @@ export default function TimelineScreen() {
   const [groupedEvents, setGroupedEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filterType, setFilterType] = useState<string | null>(null);
+  const [timePeriodFilter, setTimePeriodFilter] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
   const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isLoadingClip, setIsLoadingClip] = useState(false);
-  const colorScheme = useColorScheme();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredEvents, setFilteredEvents] = useState<TimelineEvent[]>([]);
+  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 0, pageSize: 50, totalPages: 0 });
+  const colorScheme = useColorScheme() ?? 'light';
+  
+  // Load server URL on mount
+  useEffect(() => {
+    const initializeAndFetch = async () => {
+      await loadServerUrl();
+      // Update SERVER_URL with the latest server URL
+      SERVER_URL = SERVER_CONFIG.serverUrl;
+      console.log('Timeline screen using server URL:', SERVER_URL);
+      
+      // Then fetch events
+      await fetchTimelineEvents(0);
+    };
+    
+    initializeAndFetch();
+  }, []);
+  
+  // Effect to reset and refetch when filters change
+  useEffect(() => {
+    const resetAndRefetch = async () => {
+      setEvents([]);
+      setFilteredEvents([]);
+      setGroupedEvents([]);
+      setPagination({ total: 0, page: 0, pageSize: 50, totalPages: 0 });
+      await fetchTimelineEvents(0);
+    };
+    
+    resetAndRefetch();
+  }, [filterType, timePeriodFilter]);
+  
+  // Effect to handle search
+  useEffect(() => {
+    // Debounce search to avoid too many requests while typing
+    const debounceTimeout = setTimeout(() => {
+      // Reset pagination when searching
+      setPagination({ total: 0, page: 0, pageSize: 50, totalPages: 0 });
+      setEvents([]);
+      setFilteredEvents([]);
+      setGroupedEvents([]);
+      
+      // Fetch new results with search applied
+      fetchTimelineEvents(0); 
+    }, 300); // 300ms debounce delay
+    
+    return () => clearTimeout(debounceTimeout);
+  }, [searchQuery]);
   
   // Fetch timeline events from server
-  const fetchTimelineEvents = async () => {
+  const fetchTimelineEvents = async (page: number) => {
     try {
-      setLoading(true);
+      if (page === 0) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+      
+      console.log('Fetching timeline events from:', SERVER_URL);
+      
+      // Ensure we have a valid server URL
+      if (!SERVER_URL || SERVER_URL === 'http://localhost:9000') {
+        await loadServerUrl();
+        SERVER_URL = SERVER_CONFIG.serverUrl;
+        console.log('Updated server URL before fetch:', SERVER_URL);
+      }
       
       // Build query parameters
-      let url = `${SERVER_URL}/timeline`;
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('pageSize', '50');
+      
       if (filterType) {
-        url += `?type=${filterType}`;
+        params.append('type', filterType);
       }
+      
+      if (timePeriodFilter) {
+        params.append('timePeriod', timePeriodFilter);
+      }
+      
+      // Add search parameter if there's a search query
+      if (searchQuery.trim()) {
+        params.append('search', searchQuery.trim());
+      }
+      
+      const url = `${SERVER_URL}/timeline?${params.toString()}`;
+      console.log('Fetching timeline from: ', url);
       
       const response = await fetch(url);
       
@@ -91,35 +194,69 @@ export default function TimelineScreen() {
       const data = await response.json();
       
       if (data && data.timeline) {
-        setEvents(data.timeline);
-        setGroupedEvents(groupEventsByDate(data.timeline));
+        if (page === 0) {
+          // First page, replace existing data
+          setEvents(data.timeline);
+          setFilteredEvents(data.timeline);
+          setGroupedEvents(groupEventsByDate(data.timeline));
+        } else {
+          // Subsequent page, append data
+          const updatedEvents = [...events, ...data.timeline];
+          setEvents(updatedEvents);
+          setFilteredEvents(updatedEvents);
+          setGroupedEvents(groupEventsByDate(updatedEvents));
+        }
+        
+        // Update pagination info
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
       } else {
-        setEvents([]);
-        setGroupedEvents([]);
+        if (page === 0) {
+          setEvents([]);
+          setFilteredEvents([]);
+          setGroupedEvents([]);
+        }
       }
     } catch (error) {
       console.error('Error fetching timeline events:', error);
-      Alert.alert('Error', 'Failed to load timeline events. Please try again later.');
+      Alert.alert('Error', 'Failed to load timeline events. Pull down to refresh.');
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   };
   
-  // Initial load
-  useEffect(() => {
-    fetchTimelineEvents();
-  }, [filterType]);
-  
-  // Handle refresh
+  // Handle refresh (pull down to refresh)
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchTimelineEvents();
+    setPagination({ ...pagination, page: 0 });
+    fetchTimelineEvents(0);
+  };
+  
+  // Handle load more when scrolling to end
+  const handleLoadMore = () => {
+    if (loadingMore) return; // Prevent multiple load more calls
+    if (pagination.page >= pagination.totalPages - 1) return; // No more pages to load
+    
+    const nextPage = pagination.page + 1;
+    fetchTimelineEvents(nextPage);
   };
   
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
   
   const getEventIcon = (type: string, objectClass: string) => {
@@ -147,13 +284,16 @@ export default function TimelineScreen() {
   
   const getEventDescription = (event: TimelineEvent) => {
     if (event.detection_type === 'person') {
-      if (event.person_name && event.person_name !== 'Unknown') {
-        return `${event.person_name} detected`;
-      }
-      return 'Person detected';
+      if (event.display_name) {
+        // Remove any "segment" text from display name
+        return event.display_name.replace(/segment/i, '').trim();
+      } 
+      // If display_name is not set, we follow the default logic for unknown person
+      return 'Unknown person';
     }
     
-    return `${event.object_class} detected`;
+    // Remove any "segment" text from object class
+    return `${event.object_class}`.replace(/segment/i, '').trim() || event.detection_type;
   };
   
   const getThumbnailUrl = (event: TimelineEvent) => {
@@ -162,7 +302,7 @@ export default function TimelineScreen() {
     const baseUrl = 'https://via.placeholder.com/100x100/333/fff?text=';
     
     if (event.detection_type === 'person') {
-      if (event.person_name && event.person_name !== 'Unknown') {
+      if (event.person_name && event.person_name !== 'Unknown person') {
         return `${baseUrl}${encodeURIComponent(event.person_name)}`;
       }
       return `${baseUrl}Person`;
@@ -171,46 +311,62 @@ export default function TimelineScreen() {
     return `${baseUrl}${encodeURIComponent(event.object_class)}`;
   };
   
-  const renderTimelineEvent = ({ item }: { item: TimelineEvent }) => (
-    <TouchableOpacity 
-      style={[
-        styles.eventCard, 
-        { backgroundColor: Colors[colorScheme].card, borderColor: Colors[colorScheme].cardBorder }
-      ]}
-      onPress={() => handleEventPress(item)}
-    >
-      <View style={styles.eventTime}>
-        <Text style={[styles.timeText, { color: Colors[colorScheme].gray }]}>
-          {formatTime(item.detection_time)}
-        </Text>
-        <View style={[styles.cameraRoleTag, { backgroundColor: Colors[colorScheme].primary }]}>
-          <Text style={styles.cameraRoleText}>{item.camera_role}</Text>
-        </View>
-      </View>
-      
-      <View style={[styles.eventLine, { backgroundColor: priorityColors[item.detection_type === 'person' ? 'high' : 'medium'] }]} />
-      
-      <View style={styles.eventContent}>
-        <View style={styles.eventHeader}>
-          {getEventIcon(item.detection_type, item.object_class)}
-          <View style={styles.headerTextContainer}>
-            <Text style={[styles.eventTitle, { color: Colors[colorScheme].text }]}>
-              {getEventDescription(item)}
-            </Text>
+  const renderTimelineEvent = ({ item }: { item: TimelineEvent }) => {
+    const isUnknownPerson = item.detection_type === 'person' && 
+      (!item.person_name || item.person_name === 'Unknown person');
+    
+    // Clean up camera role by removing the word "segment" if present
+    const displayCameraRole = item.camera_role 
+      ? item.camera_role.replace(/segment/gi, '').trim() || 'Camera'
+      : 'Camera';
+    
+    return (
+      <TouchableOpacity 
+        style={[
+          styles.eventCard, 
+          { backgroundColor: Colors[colorScheme].card, borderColor: Colors[colorScheme].cardBorder }
+        ]}
+        onPress={() => handleEventPress(item)}
+      >
+        <View style={styles.eventLine} />
+        
+        <TouchableOpacity 
+          style={styles.playButton}
+          onPress={() => handleEventPress(item)}
+        >
+          <Ionicons name="play-circle" size={32} color={Colors[colorScheme].primary} />
+        </TouchableOpacity>
+        
+        <View style={styles.eventContent}>
+          <View style={styles.eventHeader}>
+            {getEventIcon(item.detection_type, item.object_class)}
+            <View style={styles.headerTextContainer}>
+              <Text 
+                style={[
+                  styles.eventTitle, 
+                  { 
+                    color: isUnknownPerson ? '#ef4444' : Colors[colorScheme].text,
+                    fontWeight: isUnknownPerson ? '700' : '600'
+                  }
+                ]}
+              >
+                {getEventDescription(item)}
+              </Text>
+              <Text style={[styles.timeText, { color: Colors[colorScheme].gray, marginTop: 4 }]}>
+                {formatDateTime(item.detection_time)}
+              </Text>
+            </View>
           </View>
         </View>
         
-        <View style={styles.thumbnailContainer}>
-          <Image source={{ uri: getThumbnailUrl(item) }} style={styles.thumbnail} />
-          {item.person_name && item.person_name !== 'Unknown' && (
-            <View style={styles.nameTag}>
-              <Text style={styles.nameText}>{item.person_name}</Text>
-            </View>
-          )}
+        <View style={styles.eventLocation}>
+          <View style={[styles.cameraRoleTag, { backgroundColor: Colors[colorScheme].primary }]}>
+            <Text style={styles.cameraRoleText}>{displayCameraRole}</Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
   
   const renderDateSection = ({ item }: { item: any }) => (
     <View style={styles.dateSection}>
@@ -287,7 +443,15 @@ export default function TimelineScreen() {
       }
 
       const data = await response.json();
-      if (data.url) {
+      
+      // Handle door access events specially
+      if (data.isDoorAccess) {
+        setVideoUrl(null); // No video for door access events
+        setSelectedEvent({
+          ...event,
+          doorAccessInfo: data // Store the door access information
+        });
+      } else if (data.url) {
         setVideoUrl(`${SERVER_URL}${data.url}`);
       } else {
         throw new Error('No video clip available');
@@ -310,11 +474,99 @@ export default function TimelineScreen() {
     setVideoUrl(null);
   };
   
+  // Show time period filter options
+  const showTimePeriodOptions = () => {
+    Alert.alert(
+      "Filter by Time Period",
+      "Select time period to display",
+      [
+        {
+          text: "All Time",
+          onPress: () => setTimePeriodFilter(null),
+        },
+        {
+          text: "Today",
+          onPress: () => setTimePeriodFilter('today'),
+        },
+        {
+          text: "Yesterday",
+          onPress: () => setTimePeriodFilter('yesterday'),
+        },
+        {
+          text: "This Week",
+          onPress: () => setTimePeriodFilter('week'),
+        },
+        {
+          text: "This Month",
+          onPress: () => setTimePeriodFilter('month'),
+        },
+        {
+          text: "Cancel",
+          style: "cancel"
+        }
+      ]
+    );
+  };
+  
+  // Get time period button text
+  const getTimePeriodButtonText = () => {
+    switch(timePeriodFilter) {
+      case 'today':
+        return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
+      case 'week':
+        return 'This Week';
+      case 'month':
+        return 'This Month';
+      default:
+        return 'All Time';
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
-      <View style={styles.filterContainer}>
+      {/* Filter search bar */}
+      <View style={styles.topBarContainer}>
+        <View style={[
+          styles.searchContainer,
+          { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
+        ]}>
+          <Ionicons 
+            name="search" 
+            size={20} 
+            color={colorScheme === 'dark' ? '#888' : '#666'} 
+            style={styles.searchIcon} 
+          />
+          <TextInput
+            style={[
+              styles.searchInput,
+              { 
+                color: Colors[colorScheme].text,
+                backgroundColor: 'transparent' 
+              }
+            ]}
+            placeholder="Search events..."
+            placeholderTextColor={colorScheme === 'dark' ? '#888' : '#999'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity 
+              style={styles.clearButton} 
+              onPress={() => setSearchQuery('')}
+            >
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+      
+      {/* Filter buttons */}
+      <View style={styles.filterButtonContainer}>
+        <View style={styles.filterButtonSpacer} />
         <TouchableOpacity 
           style={[styles.filterButton, { backgroundColor: Colors[colorScheme].primary }]}
           onPress={showFilterOptions}
@@ -322,8 +574,17 @@ export default function TimelineScreen() {
           <Text style={styles.filterButtonText}>{getFilterButtonText()}</Text>
           <Ionicons name="chevron-down" size={16} color="#fff" />
         </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.filterButton, { backgroundColor: Colors[colorScheme].secondary }]}
+          onPress={showTimePeriodOptions}
+        >
+          <Text style={styles.filterButtonText}>{getTimePeriodButtonText()}</Text>
+          <Ionicons name="chevron-down" size={16} color="#fff" />
+        </TouchableOpacity>
       </View>
       
+      {/* Timeline content */}
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
@@ -332,20 +593,54 @@ export default function TimelineScreen() {
           </Text>
         </View>
       ) : groupedEvents.length > 0 ? (
-        <FlatList
-          data={groupedEvents}
-          renderItem={renderDateSection}
-          keyExtractor={(item) => item.date}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[Colors[colorScheme].primary]}
-              tintColor={Colors[colorScheme].primary}
-            />
-          }
-        />
+        <>
+          <FlatList
+            data={groupedEvents}
+            renderItem={renderDateSection}
+            keyExtractor={(item) => item.date}
+            contentContainerStyle={styles.listContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[Colors[colorScheme].primary]}
+                tintColor={Colors[colorScheme].primary}
+              />
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={styles.loadMoreContainer}>
+                  <ActivityIndicator size="small" color={Colors[colorScheme].primary} />
+                  <Text style={[styles.loadMoreText, { color: Colors[colorScheme].text }]}>
+                    Loading more events...
+                  </Text>
+                </View>
+              ) : pagination.page < pagination.totalPages - 1 ? (
+                <TouchableOpacity 
+                  style={[styles.loadMoreButton, { backgroundColor: Colors[colorScheme].card }]}
+                  onPress={() => handleLoadMore()}
+                >
+                  <Text style={[styles.loadMoreButtonText, { color: Colors[colorScheme].primary }]}>
+                    Load more
+                  </Text>
+                </TouchableOpacity>
+              ) : events.length > 0 ? (
+                <Text style={[styles.endOfListText, { color: Colors[colorScheme].gray }]}>
+                  End of timeline
+                </Text>
+              ) : null
+            }
+          />
+          
+          {/* Show count indicator */}
+          <View style={[styles.countIndicator, { backgroundColor: Colors[colorScheme].primary + '99' }]}>
+            <Text style={styles.countText}>
+              Showing {events.length} of {pagination.total} events
+            </Text>
+          </View>
+        </>
       ) : (
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={64} color={Colors[colorScheme].gray} />
@@ -353,7 +648,7 @@ export default function TimelineScreen() {
             No events found
           </Text>
           <Text style={[styles.emptySubtext, { color: Colors[colorScheme].gray }]}>
-            Events will appear here when detected
+            {searchQuery ? 'No events match your search' : timePeriodFilter ? `No events in the selected time period` : 'Events will appear here when detected'}
           </Text>
           <TouchableOpacity 
             style={[styles.refreshButton, { backgroundColor: Colors[colorScheme].primary }]}
@@ -362,7 +657,7 @@ export default function TimelineScreen() {
             <Text style={styles.refreshButtonText}>Refresh</Text>
           </TouchableOpacity>
         </View>
-      )}
+            )}
 
       <Modal
         animationType="slide"
@@ -377,9 +672,11 @@ export default function TimelineScreen() {
                 <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
               </TouchableOpacity>
               <Text style={[styles.modalTitle, { color: Colors[colorScheme].text }]}>
-                {selectedEvent?.detection_type === 'person' && selectedEvent?.person_name
-                  ? `${selectedEvent.person_name} Detected`
-                  : `${selectedEvent?.object_class || 'Object'} Detected`}
+                {selectedEvent?.detection_type === 'person' && selectedEvent?.person_name && selectedEvent.person_name !== 'Unknown person'
+                  ? `${selectedEvent.person_name}`
+                  : selectedEvent?.detection_type === 'person' 
+                    ? 'Unknown person'
+                    : `${selectedEvent?.object_class || 'Object'}`}
               </Text>
               <View style={styles.headerSpacer} />
             </View>
@@ -392,13 +689,50 @@ export default function TimelineScreen() {
                     Loading clip...
                   </Text>
                 </View>
+              ) : selectedEvent?.doorAccessInfo ? (
+                <View style={styles.doorAccessContainer}>
+                  <Ionicons 
+                    name={selectedEvent.doorAccessInfo.doorOpened ? "checkmark-circle" : "close-circle"} 
+                    size={64} 
+                    color={selectedEvent.doorAccessInfo.doorOpened ? Colors[colorScheme].success : Colors[colorScheme].danger} 
+                  />
+                  <Text style={[styles.doorAccessTitle, { color: Colors[colorScheme].text }]}>
+                    Door Access Event
+                  </Text>
+                  <Text style={[styles.doorAccessMessage, { color: Colors[colorScheme].text }]}>
+                    {selectedEvent.doorAccessInfo.message}
+                  </Text>
+                  
+                  {selectedEvent.doorAccessInfo.personNames && selectedEvent.doorAccessInfo.personNames.length > 0 && (
+                    <View style={styles.personInfo}>
+                      <Text style={[styles.personLabel, { color: Colors[colorScheme].text }]}>
+                        Person(s):
+                      </Text>
+                      <Text style={[styles.personNames, { color: Colors[colorScheme].primary }]}>
+                        {selectedEvent.doorAccessInfo.personNames.join(', ')}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  <View style={styles.accessStatus}>
+                    <Text style={[styles.statusLabel, { color: Colors[colorScheme].text }]}>
+                      Status:
+                    </Text>
+                    <Text style={[
+                      styles.statusText, 
+                      { color: selectedEvent.doorAccessInfo.doorOpened ? Colors[colorScheme].success : Colors[colorScheme].danger }
+                    ]}>
+                      {selectedEvent.doorAccessInfo.doorOpened ? 'Access Granted' : 'Access Denied'}
+                    </Text>
+                  </View>
+                </View>
               ) : videoUrl ? (
                 <Video
                   style={styles.video}
                   source={{ uri: videoUrl }}
                   useNativeControls
                   shouldPlay
-                  resizeMode="contain"
+                  resizeMode={ResizeMode.CONTAIN}
                   isLooping={false}
                 />
               ) : (
@@ -417,7 +751,9 @@ export default function TimelineScreen() {
                   Time: {new Date(selectedEvent.detection_time).toLocaleString()}
                 </Text>
                 <Text style={[styles.detailText, { color: Colors[colorScheme].text }]}>
-                  Camera: {selectedEvent.camera_role}
+                  Camera: {selectedEvent.camera_role 
+                    ? selectedEvent.camera_role.replace(/segment/gi, '').trim() || 'Camera' 
+                    : 'Camera'}
                 </Text>
                 <Text style={[styles.detailText, { color: Colors[colorScheme].text }]}>
                   Confidence: {Math.round(selectedEvent.confidence * 100)}%
@@ -431,8 +767,8 @@ export default function TimelineScreen() {
   );
 }
 
-// Define priority colors
-const priorityColors = {
+// Define priority colors with proper typing
+const priorityColors: Record<string, string> = {
   'high': '#ef4444',    // Red
   'medium': '#f59e0b',  // Amber
   'low': '#10b981',     // Green
@@ -442,18 +778,87 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  filterContainer: {
+  topBarContainer: {
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterButtonContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+    paddingTop: 6,
+    justifyContent: 'flex-end',
+  },
+  filterButtonSpacer: {
+    flex: 1,
+  },
+  loadMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 16,
-    paddingBottom: 8,
+  },
+  loadMoreText: {
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  loadMoreButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    margin: 16,
+  },
+  loadMoreButtonText: {
+    fontWeight: '600',
+  },
+  endOfListText: {
+    textAlign: 'center',
+    padding: 16,
+    fontSize: 14,
+  },
+  countIndicator: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  countText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    height: 40,
+    marginRight: 8,
+    overflow: 'hidden',
+  },
+  searchIcon: {
+    paddingLeft: 12,
+    backgroundColor: 'transparent',
+  },
+  searchInput: {
+    flex: 1,
+    paddingHorizontal: 8,
+    fontSize: 16,
+    height: 40,
+  },
+  clearButton: {
+    padding: 8,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    marginHorizontal: 5,
   },
   filterButtonText: {
     color: '#fff',
@@ -487,36 +892,32 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
-    maxHeight: 80,
-  },
-  eventTime: {
-    width: 80,
-    paddingVertical: 12,
-    paddingLeft: 12,
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  cameraRoleTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  cameraRoleText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '500',
   },
   eventLine: {
-    width: 3,
+    width: 4,
+    backgroundColor: '#ef4444',
   },
   eventContent: {
     flex: 1,
     padding: 12,
+  },
+  eventLocation: {
+    padding: 12,
+    justifyContent: 'center',
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  cameraRoleTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  cameraRoleText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '500',
   },
   eventHeader: {
     flexDirection: 'row',
@@ -528,31 +929,12 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 16,
   },
-  thumbnailContainer: {
-    position: 'relative',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  thumbnail: {
-    width: '100%',
-    height: 120,
-    borderRadius: 8,
-  },
-  nameTag: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  nameText: {
-    color: '#fff',
-    fontWeight: '500',
-    fontSize: 12,
+  playButton: {
+    padding: 4,
+    marginLeft: 8,
+    justifyContent: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -645,5 +1027,48 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
     marginBottom: 8,
+  },
+  doorAccessContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  doorAccessTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  doorAccessMessage: {
+    fontSize: 16,
+    marginTop: 8,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  personInfo: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  personLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  personNames: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  accessStatus: {
+    alignItems: 'center',
+  },
+  statusLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

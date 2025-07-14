@@ -1,8 +1,174 @@
-server/videos/*
-server/yolo11x.pt
-serverface_images/*
-server/clips/*
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# But don't ignore the folders themselves (so Git keeps them)
-!server/face_images/.gitkeep
-!server/clips/.gitkeep
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+server/env/
+server/__pycache__/
+*.pkl
+*.h5
+*.keras
+*.pt
+*.pth
+*.onnx
+*.zip
+
+# Large model files
+server/yolov8n.pt
+server/yolo11x.pt
+server/VGG16 Transfer Model.keras
+server/models/models/buffalo_l.zip
+server/models/models/buffalo_l/*.onnx
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript v1 declaration files
+typings/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Local environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.flv
+*.wmv
+*.webm
+*.m4v
+*.3gp
+*.ogv
+*.ts
+*.mts
+*.m2ts
+
+# Face images and thumbnails (these can be large)
+server/face_images/
+server/thumbnails/
+server/captures/
+server/clips/
+server/videos/
+
+# Test files
+server/test_*.jpg
+server/test_*.py
+server/test_*.sh
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+=*
+temp/
+tmp/

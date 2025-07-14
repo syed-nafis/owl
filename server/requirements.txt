@@ -7,10 +7,13 @@ Werkzeug>=2.3.7
 # Updated for Python 3.13 compatibility
 numpy>=1.26.0
 opencv-python>=4.8.0
+scikit-learn>=1.3.0  # For cosine_similarity
 
-# Face detection (with fallbacks)
-dlib>=19.24.0; platform_system != "Darwin" or platform_machine != "arm64"
-face-recognition>=1.3.0; platform_system != "Darwin" or platform_machine != "arm64"
+# Face detection and recognition
+mediapipe>=0.10.0  # For face detection and alignment
+insightface>=0.7.3  # For ArcFace embedding generation
+# dlib>=19.24.0; platform_system != "Darwin" or platform_machine != "arm64"
+# face-recognition>=1.3.0; platform_system != "Darwin" or platform_machine != "arm64"
 
 # Database
 mysql-connector-python>=8.0.27

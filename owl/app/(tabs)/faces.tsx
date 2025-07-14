@@ -19,16 +19,32 @@ import * as ImagePicker from 'expo-image-picker';
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import MjpegViewer from '../../components/MjpegViewer';
+import { SERVER_CONFIG, loadServerUrl, PI_CONFIG, loadPiConfig } from '../../constants/Config';
 
-// Define API URL - change this to your server's address
-const API_URL = 'http://192.168.0.102:9000'; // Update with your server IP
+type Theme = 'light' | 'dark';
+type ThemeColors = typeof Colors.light & typeof Colors.dark;
+
+// Helper function to generate placeholder image URLs
+const getPlaceholderUrl = (name: string) => {
+  const encodedName = encodeURIComponent(name.replace(/[^a-zA-Z0-9]/g, '_'));
+  return `https://via.placeholder.com/300x300/333/fff?text=${encodedName}`;
+};
+
+// Helper function to safely get theme colors
+const getThemeColors = (scheme: ColorSchemeName): ThemeColors => {
+  return Colors[scheme === 'dark' ? 'dark' : 'light'];
+};
+
+// Define API URL - use the centralized config
+let API_URL = SERVER_CONFIG.serverUrl;
 
 // Your Raspberry Pi camera's IP address and port
-const PI_CAMERA_IP = '192.168.0.107'; // Update with your Pi camera's IP
-const PI_CAMERA_PORT = 8000; // Pi camera runs on port 8000 by default
+let PI_CAMERA_IP = PI_CONFIG.ip; // Your Pi camera's IP
+let PI_CAMERA_PORT = PI_CONFIG.port; // Pi camera runs on port 8000 by default
+let PI_SERVER_URL = PI_CONFIG.url; // Full Pi server URL
 
 // Mock data for registered faces - will be replaced with API data
-const MOCK_FACES = [
+const MOCK_FACES: Face[] = [
   {
     id: '1',
     name: 'Adam Smith',
@@ -36,6 +52,12 @@ const MOCK_FACES = [
     image: 'https://via.placeholder.com/300x300/333/fff?text=Adam',
     dateAdded: '2023-05-15T10:30:00',
     sampleCount: 5,
+    accessAreas: {
+      bedroom: true,
+      living_room: true,
+      kitchen: false,
+      front_door: true
+    }
   },
   {
     id: '2',
@@ -44,6 +66,12 @@ const MOCK_FACES = [
     image: 'https://via.placeholder.com/300x300/333/fff?text=Sarah',
     dateAdded: '2023-05-16T14:20:00',
     sampleCount: 8,
+    accessAreas: {
+      bedroom: true,
+      living_room: true,
+      kitchen: false,
+      front_door: true
+    }
   },
   {
     id: '3',
@@ -52,6 +80,12 @@ const MOCK_FACES = [
     image: 'https://via.placeholder.com/300x300/333/fff?text=Mike',
     dateAdded: '2023-05-18T09:45:00',
     sampleCount: 3,
+    accessAreas: {
+      bedroom: false,
+      living_room: true,
+      kitchen: false,
+      front_door: true
+    }
   },
   {
     id: '4',
@@ -60,6 +94,12 @@ const MOCK_FACES = [
     image: 'https://via.placeholder.com/300x300/333/fff?text=Emma',
     dateAdded: '2023-05-20T16:10:00',
     sampleCount: 6,
+    accessAreas: {
+      bedroom: false,
+      living_room: false,
+      kitchen: false,
+      front_door: true
+    }
   },
   {
     id: '5',
@@ -68,6 +108,12 @@ const MOCK_FACES = [
     image: 'https://via.placeholder.com/300x300/333/fff?text=John',
     dateAdded: '2023-05-25T11:05:00',
     sampleCount: 4,
+    accessAreas: {
+      bedroom: false,
+      living_room: true,
+      kitchen: false,
+      front_door: true
+    }
   },
 ];
 
@@ -96,6 +142,12 @@ interface Face {
   image: string;
   dateAdded: string;
   sampleCount: number;
+  accessAreas: {
+    bedroom: boolean;
+    living_room: boolean;
+    kitchen: boolean;
+    front_door: boolean;
+  };
 }
 
 // Add type for FormData
@@ -109,12 +161,6 @@ interface CaptureResponse {
   server_image_url?: string;
   error?: string;
 }
-
-// Update getThemeColors function with proper type safety
-const getThemeColors = (scheme: ColorSchemeName) => {
-  const validScheme = (scheme || 'light') as keyof typeof Colors;
-  return Colors[validScheme];
-};
 
 const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCaptureModalProps) => {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -148,7 +194,7 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
     try {
       setLoading(true);
       // Use the constants we defined at the top of the file
-      const mjpegUrl = `http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/stream`;
+      const mjpegUrl = `${PI_SERVER_URL}/stream`;
       
       // Create AbortController for timeout
       const controller = new AbortController();
@@ -156,7 +202,7 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
       
       try {
         // Try to access the stream
-        const response = await fetch(`http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/start-stream`, {
+        const response = await fetch(`${PI_SERVER_URL}/start-stream`, {
           method: 'POST',
           signal: controller.signal,
           headers: {
@@ -212,7 +258,7 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
       if (!isStreaming) return;
       
       // Stop the stream on the Pi camera
-      const response = await fetch(`http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/stop-stream`, {
+      const response = await fetch(`${PI_SERVER_URL}/stop-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -245,7 +291,7 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
       
       try {
         // Call the capture API on the Pi camera
-        const response = await fetch(`http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/capture`, {
+        const response = await fetch(`${PI_SERVER_URL}/capture`, {
           method: 'POST',
           signal: controller.signal,
           headers: {
@@ -263,7 +309,7 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
           const data = await response.json() as CaptureResponse;
           if (data.success) {
             // Store both the local Pi image URL and the server URL if available
-            const piImageUrl = `http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}${data.image_url}`;
+            const piImageUrl = `${PI_SERVER_URL}${data.image_url}`;
             setCapturedImageUri(piImageUrl);
             
             if (data.server_image_url) {
@@ -334,14 +380,14 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: getThemeColors(colorScheme).background }]}>
+      <View style={[styles.modalContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
         {/* Header */}
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={getThemeColors(colorScheme).text} />
-            <Text style={[styles.backButtonText, { color: getThemeColors(colorScheme).text }]}>Back</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors[colorScheme ?? 'light'].text} />
+            <Text style={[styles.backButtonText, { color: Colors[colorScheme ?? 'light'].text }]}>Back</Text>
           </TouchableOpacity>
-          <Text style={[styles.modalTitle, { color: getThemeColors(colorScheme).text }]}>Register New Face</Text>
+          <Text style={[styles.modalTitle, { color: Colors[colorScheme ?? 'light'].text }]}>Register New Face</Text>
           <View style={styles.headerSpacer} />
         </View>
         
@@ -369,17 +415,17 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
               {isStreaming && streamUrl ? (
                 <MjpegViewer streamUrl={streamUrl} style={styles.cameraPreview} />
               ) : (
-                <View style={[styles.cameraPreview, { backgroundColor: getThemeColors(colorScheme).card }]}>
+                <View style={[styles.cameraPreview, { backgroundColor: Colors[colorScheme ?? 'light'].cardBackground }]}>
                   {loading ? (
-                    <ActivityIndicator size="large" color={getThemeColors(colorScheme).primary} />
+                    <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].primary} />
                   ) : (
                     <View style={styles.cameraOfflineContainer}>
-                      <Ionicons name="camera-outline" size={48} color={getThemeColors(colorScheme).gray} />
-                      <Text style={[styles.cameraOfflineText, { color: getThemeColors(colorScheme).text }]}>
-                        Camera not connected
+                      <Ionicons name="camera-outline" size={48} color={Colors[colorScheme ?? 'light'].gray} />
+                      <Text style={[styles.cameraOfflineText, { color: Colors[colorScheme ?? 'light'].text }]}>
+                        Camera not currently connected
                       </Text>
                       <TouchableOpacity
-                        style={[styles.retryButton, { backgroundColor: getThemeColors(colorScheme).primary }]}
+                        style={[styles.retryButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
                         onPress={startStreaming}
                       >
                         <Text style={styles.retryButtonText}>Retry Connection</Text>
@@ -395,23 +441,23 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
         {/* Form */}
         <ScrollView style={styles.formScrollView}>
           <View style={styles.formContainer}>
-            <Text style={[styles.formLabel, { color: getThemeColors(colorScheme).text }]}>Name</Text>
+            <Text style={[styles.formLabel, { color: Colors[colorScheme ?? 'light'].text }]}>Name</Text>
             <TextInput
               style={[
                 styles.textInput, 
                 { 
-                  backgroundColor: getThemeColors(colorScheme).card, 
-                  color: getThemeColors(colorScheme).text,
-                  borderColor: getThemeColors(colorScheme).cardBorder
+                  backgroundColor: Colors[colorScheme ?? 'light'].cardBackground, 
+                  color: Colors[colorScheme ?? 'light'].text,
+                  borderColor: Colors[colorScheme ?? 'light'].cardBorder
                 }
               ]}
               placeholder="Enter name"
-              placeholderTextColor={getThemeColors(colorScheme).gray}
+              placeholderTextColor={Colors[colorScheme ?? 'light'].gray}
               value={name}
               onChangeText={setName}
             />
             
-            <Text style={[styles.formLabel, { color: getThemeColors(colorScheme).text, marginTop: 16 }]}>Role</Text>
+            <Text style={[styles.formLabel, { color: Colors[colorScheme ?? 'light'].text, marginTop: 16 }]}>Role</Text>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false} 
@@ -448,7 +494,7 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
         <View style={styles.buttonContainer}>
           {capturedImageUri ? (
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: getThemeColors(colorScheme).primary }]}
+              style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
               onPress={handleRegisterFace}
               disabled={loading}
             >
@@ -463,7 +509,7 @@ const FaceCaptureModal = ({ visible, onClose, onCapture, colorScheme }: FaceCapt
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: getThemeColors(colorScheme).primary }]}
+              style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
               onPress={captureScreenshot}
               disabled={loading || !isStreaming}
             >
@@ -504,7 +550,7 @@ function ScrollableRoleFilter({ label, active, onPress, colorScheme, color }: Sc
       <Text
         style={[
           styles.roleFilterText,
-          { color: active ? '#fff' : getThemeColors(colorScheme).text }
+          { color: active ? '#fff' : Colors[colorScheme ?? 'light'].text }
         ]}
       >
         {label}
@@ -591,35 +637,35 @@ const FaceDetailsForm = ({ visible, onClose, onNext, colorScheme }: FaceDetailsF
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: getThemeColors(colorScheme).background }]}>
+      <View style={[styles.modalContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={getThemeColors(colorScheme).text} />
-            <Text style={[styles.backButtonText, { color: getThemeColors(colorScheme).text }]}>Back</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors[colorScheme ?? 'light'].text} />
+            <Text style={[styles.backButtonText, { color: Colors[colorScheme ?? 'light'].text }]}>Back</Text>
           </TouchableOpacity>
-          <Text style={[styles.modalTitle, { color: getThemeColors(colorScheme).text }]}>Add New Face</Text>
+          <Text style={[styles.modalTitle, { color: Colors[colorScheme ?? 'light'].text }]}>Add New Face</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView style={styles.formScrollView}>
           <View style={styles.formContainer}>
-            <Text style={[styles.formLabel, { color: getThemeColors(colorScheme).text }]}>Name</Text>
+            <Text style={[styles.formLabel, { color: Colors[colorScheme ?? 'light'].text }]}>Name</Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
-                  backgroundColor: getThemeColors(colorScheme).card,
-                  color: getThemeColors(colorScheme).text,
-                  borderColor: getThemeColors(colorScheme).cardBorder
+                  backgroundColor: Colors[colorScheme ?? 'light'].cardBackground,
+                  color: Colors[colorScheme ?? 'light'].text,
+                  borderColor: Colors[colorScheme ?? 'light'].cardBorder
                 }
               ]}
               placeholder="Enter name"
-              placeholderTextColor={getThemeColors(colorScheme).gray}
+              placeholderTextColor={Colors[colorScheme ?? 'light'].gray}
               value={details.name}
               onChangeText={(text) => setDetails({ ...details, name: text })}
             />
 
-            <Text style={[styles.formLabel, { color: getThemeColors(colorScheme).text, marginTop: 16 }]}>Role</Text>
+            <Text style={[styles.formLabel, { color: Colors[colorScheme ?? 'light'].text, marginTop: 16 }]}>Role</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -650,7 +696,7 @@ const FaceDetailsForm = ({ visible, onClose, onNext, colorScheme }: FaceDetailsF
               ))}
             </ScrollView>
 
-            <Text style={[styles.formLabel, { color: getThemeColors(colorScheme).text, marginTop: 24 }]}>Access Areas</Text>
+            <Text style={[styles.formLabel, { color: Colors[colorScheme ?? 'light'].text, marginTop: 24 }]}>Access Areas</Text>
             <View style={styles.accessContainer}>
               {Object.entries(ACCESS_AREAS).map(([key, label]) => (
                 <TouchableOpacity
@@ -659,9 +705,9 @@ const FaceDetailsForm = ({ visible, onClose, onNext, colorScheme }: FaceDetailsF
                     styles.accessButton,
                     {
                       backgroundColor: details.access[key as keyof typeof details.access] 
-                        ? getThemeColors(colorScheme).primary 
+                        ? Colors[colorScheme ?? 'light'].primary 
                         : 'transparent',
-                      borderColor: getThemeColors(colorScheme).primary
+                      borderColor: Colors[colorScheme ?? 'light'].primary
                     }
                   ]}
                   onPress={() => setDetails({
@@ -677,7 +723,7 @@ const FaceDetailsForm = ({ visible, onClose, onNext, colorScheme }: FaceDetailsF
                     size={24}
                     color={details.access[key as keyof typeof details.access] 
                       ? "#fff" 
-                      : getThemeColors(colorScheme).primary}
+                      : Colors[colorScheme ?? 'light'].primary}
                     style={styles.accessIcon}
                   />
                   <Text
@@ -686,7 +732,7 @@ const FaceDetailsForm = ({ visible, onClose, onNext, colorScheme }: FaceDetailsF
                       {
                         color: details.access[key as keyof typeof details.access]
                           ? "#fff"
-                          : getThemeColors(colorScheme).text
+                          : Colors[colorScheme ?? 'light'].text
                       }
                     ]}
                   >
@@ -700,7 +746,7 @@ const FaceDetailsForm = ({ visible, onClose, onNext, colorScheme }: FaceDetailsF
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: getThemeColors(colorScheme).primary }]}
+            style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
             onPress={handleNext}
           >
             <View style={styles.buttonContent}>
@@ -739,13 +785,13 @@ const PictureCaptureModal = ({
   const startStreaming = async () => {
     try {
       setLoading(true);
-      const mjpegUrl = `http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/stream`;
+      const mjpegUrl = `${PI_SERVER_URL}/stream`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       try {
-        const response = await fetch(`http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/start-stream`, {
+        const response = await fetch(`${PI_SERVER_URL}/start-stream`, {
           method: 'POST',
           signal: controller.signal,
           headers: {
@@ -785,7 +831,7 @@ const PictureCaptureModal = ({
     if (!isStreaming) return;
     
     try {
-      await fetch(`http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/stop-stream`, {
+      await fetch(`${PI_SERVER_URL}/stop-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -855,7 +901,7 @@ const PictureCaptureModal = ({
     try {
       setLoading(true);
       
-      const response = await fetch(`http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}/capture`, {
+      const response = await fetch(`${PI_SERVER_URL}/capture`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -869,7 +915,7 @@ const PictureCaptureModal = ({
       if (response.ok) {
         const data = await response.json() as CaptureResponse;
         if (data.success) {
-          const piImageUrl = `http://${PI_CAMERA_IP}:${PI_CAMERA_PORT}${data.image_url}`;
+          const piImageUrl = `${PI_SERVER_URL}${data.image_url}`;
           const newImages = [...faceDetails.images, { uri: piImageUrl, isFromPi: true }];
           onUpdateImages(newImages);
           Alert.alert("Success", "Picture captured successfully!");
@@ -1014,26 +1060,26 @@ const PictureCaptureModal = ({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: getThemeColors(colorScheme).background }]}>
+      <View style={[styles.modalContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={getThemeColors(colorScheme).text} />
-            <Text style={[styles.backButtonText, { color: getThemeColors(colorScheme).text }]}>Back</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors[colorScheme ?? 'light'].text} />
+            <Text style={[styles.backButtonText, { color: Colors[colorScheme ?? 'light'].text }]}>Back</Text>
           </TouchableOpacity>
-          <Text style={[styles.modalTitle, { color: getThemeColors(colorScheme).text }]}>Add Pictures</Text>
+          <Text style={[styles.modalTitle, { color: Colors[colorScheme ?? 'light'].text }]}>Add Pictures</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView style={styles.formScrollView}>
           <View style={styles.formContainer}>
             <View style={styles.tipsContainer}>
-              <Text style={[styles.tipsTitle, { color: getThemeColors(colorScheme).text }]}>
+              <Text style={[styles.tipsTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
                 Tips for Better Face Recognition
               </Text>
               {FACE_CAPTURE_TIPS.map((tip, index) => (
                 <View key={index} style={styles.tipRow}>
-                  <Ionicons name="bulb-outline" size={16} color={getThemeColors(colorScheme).primary} />
-                  <Text style={[styles.tipText, { color: getThemeColors(colorScheme).text }]}>
+                  <Ionicons name="bulb-outline" size={16} color={Colors[colorScheme ?? 'light'].primary} />
+                  <Text style={[styles.tipText, { color: Colors[colorScheme ?? 'light'].text }]}>
                     {tip}
                   </Text>
                 </View>
@@ -1041,7 +1087,7 @@ const PictureCaptureModal = ({
             </View>
 
             <View style={styles.imagesContainer}>
-              <Text style={[styles.imagesTitle, { color: getThemeColors(colorScheme).text }]}>
+              <Text style={[styles.imagesTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
                 Pictures ({faceDetails.images.length}/3 minimum)
               </Text>
               <View style={styles.imageCountIndicator}>
@@ -1053,14 +1099,14 @@ const PictureCaptureModal = ({
                         styles.progressDot,
                         {
                           backgroundColor: index < faceDetails.images.length 
-                            ? getThemeColors(colorScheme).primary 
-                            : getThemeColors(colorScheme).gray
+                            ? Colors[colorScheme ?? 'light'].primary 
+                            : Colors[colorScheme ?? 'light'].gray
                         }
                       ]}
                     />
                   ))}
                 </View>
-                <Text style={[styles.imageCountText, { color: getThemeColors(colorScheme).text }]}>
+                <Text style={[styles.imageCountText, { color: Colors[colorScheme ?? 'light'].text }]}>
                   {faceDetails.images.length < 3 
                     ? `Add ${3 - faceDetails.images.length} more picture${3 - faceDetails.images.length !== 1 ? 's' : ''}`
                     : 'Minimum requirement met'}
@@ -1082,10 +1128,12 @@ const PictureCaptureModal = ({
                   </View>
                 ))}
                 <TouchableOpacity
-                  style={[styles.addImageButton, { backgroundColor: getThemeColors(colorScheme).card }]}
+                  style={[styles.addImageButton, { backgroundColor: Colors[colorScheme ?? 'light'].cardBackground }]}
                   onPress={handleAddPicture}
                 >
-                  <Ionicons name="add" size={40} color={getThemeColors(colorScheme).primary} />
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="add" size={40} color={Colors[colorScheme ?? 'light'].primary} />
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1097,7 +1145,7 @@ const PictureCaptureModal = ({
             <View style={styles.streamContainer}>
               <MjpegViewer streamUrl={streamUrl} style={styles.streamView} />
               <TouchableOpacity
-                style={[styles.captureButton, { backgroundColor: getThemeColors(colorScheme).primary }]}
+                style={[styles.captureButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
                 onPress={captureFromPiCamera}
                 disabled={loading}
               >
@@ -1121,7 +1169,7 @@ const PictureCaptureModal = ({
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: getThemeColors(colorScheme).primary }]}
+            style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
             onPress={handleSave}
             disabled={loading || faceDetails.images.length === 0}
           >
@@ -1147,8 +1195,241 @@ interface ImageUpload {
   name: string;
 }
 
+interface FaceSamplesModalProps {
+  visible: boolean;
+  onClose: () => void;
+  face: Face;
+  colorScheme: ColorSchemeName;
+  onUpdateSamples: () => void;
+}
+
+const FaceSamplesModal = ({ visible, onClose, face, colorScheme, onUpdateSamples }: FaceSamplesModalProps) => {
+  const [samples, setSamples] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      fetchSamples();
+    }
+  }, [visible, face.id]);
+
+  const fetchSamples = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/api/faces/${face.id}/images`);
+      if (response.ok) {
+        const data = await response.json();
+        // Map the array of objects to an array of URLs
+        setSamples(data.map((img: { url: string }) => 
+          img.url.startsWith('http') ? img.url : `${API_URL}${img.url}`
+        ));
+      }
+    } catch (error) {
+      console.error("Error fetching samples:", error);
+      Alert.alert("Error", "Failed to load face samples");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSample = async (imageUrl: string) => {
+    Alert.alert(
+      "Confirm Deletion",
+      "Are you sure you want to delete this sample?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              // Find the image ID from the samples array
+              const sample = samples.find(s => s === imageUrl);
+              if (!sample) {
+                Alert.alert("Error", "Sample not found");
+                return;
+              }
+              
+              // Get the image ID from the samples data
+              const samplesResponse = await fetch(`${API_URL}/api/faces/${face.id}/images`);
+              if (!samplesResponse.ok) {
+                Alert.alert("Error", "Failed to get image information");
+                return;
+              }
+              
+              const samplesData = await samplesResponse.json();
+              const imageData = samplesData.find((img: { url: string }) => 
+                `${API_URL}${img.url}` === imageUrl || img.url === imageUrl
+              );
+              
+              if (!imageData) {
+                Alert.alert("Error", "Image information not found");
+                return;
+              }
+
+              const response = await fetch(`${API_URL}/api/faces/${face.id}/images/${imageData.id}`, {
+                method: 'DELETE',
+              });
+
+              if (response.ok) {
+                setSamples(samples.filter(s => s !== imageUrl));
+                onUpdateSamples();
+                Alert.alert("Success", "Sample deleted successfully");
+              } else {
+                const errorData = await response.json().catch(() => ({ error: 'Failed to delete sample' }));
+                Alert.alert("Error", errorData.error || "Failed to delete sample");
+              }
+            } catch (error) {
+              console.error("Error deleting sample:", error);
+              Alert.alert("Error", "Failed to delete sample");
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddSample = async () => {
+    Alert.alert(
+      "Add Sample",
+      "Choose how to add a new sample",
+      [
+        {
+          text: "Take Photo with Pi Camera",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const response = await fetch(`${PI_SERVER_URL}/capture`);
+              if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.image_url) {
+                  await uploadSample(data.image_url);
+                  fetchSamples();
+                }
+              }
+            } catch (error) {
+              console.error("Error capturing with Pi:", error);
+              Alert.alert("Error", "Failed to capture image");
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+        {
+          text: "Choose from Gallery",
+          onPress: async () => {
+            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permissionResult.granted) {
+              Alert.alert("Permission Required", "You need to grant camera roll permissions");
+              return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0].uri) {
+              await uploadSample(result.assets[0].uri);
+              fetchSamples();
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const uploadSample = async (imageUri: string) => {
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'face.jpg',
+      } as unknown as Blob);
+
+      const response = await fetch(`${API_URL}/api/faces/${face.id}/images`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.ok) {
+        Alert.alert("Success", "Sample added successfully!");
+        onUpdateSamples();
+      } else {
+        Alert.alert("Error", "Failed to add sample");
+      }
+    } catch (error) {
+      console.error("Error uploading sample:", error);
+      Alert.alert("Error", "Failed to upload sample");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={false}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={[styles.modalContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={Colors[colorScheme ?? 'light'].text} />
+            <Text style={[styles.backButtonText, { color: Colors[colorScheme ?? 'light'].text }]}>Back</Text>
+          </TouchableOpacity>
+          <Text style={[styles.modalTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
+            {face.name}'s Samples
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <ScrollView style={styles.samplesContainer}>
+          {loading ? (
+            <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].primary} style={styles.loader} />
+          ) : (
+            <View style={styles.samplesGrid}>
+              {samples.map((sample, index) => (
+                <View key={index} style={styles.sampleWrapper}>
+                  <Image source={{ uri: sample }} style={styles.sampleImage} />
+                  <TouchableOpacity
+                    style={styles.deleteSampleButton}
+                    onPress={() => handleDeleteSample(sample)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#ff3b30" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity
+                style={[styles.addSampleButton, { backgroundColor: Colors[colorScheme ?? 'light'].cardBackground }]}
+                onPress={handleAddSample}
+              >
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="add" size={40} color={Colors[colorScheme ?? 'light'].primary} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+};
+
 export default function FacesScreen() {
-  const [faces, setFaces] = useState(MOCK_FACES);
+  const [faces, setFaces] = useState<Face[]>(MOCK_FACES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('All');
   const [loading, setLoading] = useState(false);
@@ -1180,15 +1461,76 @@ export default function FacesScreen() {
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data) && data.length > 0) {
-          const formattedData = data.map(face => ({
-            id: face.id.toString(),
-            name: face.name,
-            role: face.role,
-            image: `${API_URL}${face.image}`,
-            dateAdded: face.dateAdded || new Date().toISOString(),
-            sampleCount: face.sampleCount || 1,
+          // Fetch sample counts for each face
+          const facesWithSamples = await Promise.all(data.map(async face => {
+            try {
+              const samplesResponse = await fetch(`${API_URL}/api/faces/${face.id}/images`);
+              if (samplesResponse.ok) {
+                const samplesData = await samplesResponse.json();
+                // Get filename from image_path using string manipulation
+                const imagePath = face.image || '';
+                let imageUrl;
+                
+                // Handle different image URL cases
+                if (imagePath.startsWith('http')) {
+                  imageUrl = imagePath;
+                } else if (imagePath.startsWith('/api/face_images/')) {
+                  imageUrl = `${API_URL}${imagePath}`;
+                } else {
+                  imageUrl = getPlaceholderUrl(face.name || 'Face');
+                }
+                
+                return {
+                  id: face.id.toString(),
+                  name: face.name,
+                  role: face.role || 'Unknown',
+                  image: imageUrl,
+                  dateAdded: face.dateAdded || new Date().toISOString(),
+                  sampleCount: samplesData.length,
+                  accessAreas: face.accessAreas || {
+                    bedroom: false,
+                    living_room: false,
+                    kitchen: false,
+                    front_door: false
+                  }
+                };
+              }
+              // Return a properly formatted face object even if samples fetch fails
+              return {
+                id: face.id.toString(),
+                name: face.name,
+                role: face.role || 'Unknown',
+                image: getPlaceholderUrl(face.name || 'Face'),
+                dateAdded: face.dateAdded || new Date().toISOString(),
+                sampleCount: 0,
+                accessAreas: face.accessAreas || {
+                  bedroom: false,
+                  living_room: false,
+                  kitchen: false,
+                  front_door: false
+                }
+              };
+            } catch (error) {
+              console.error(`Error fetching samples for face ${face.id}:`, error);
+              // Return a properly formatted face object in case of error
+              return {
+                id: face.id.toString(),
+                name: face.name,
+                role: face.role || 'Unknown',
+                image: getPlaceholderUrl(face.name || 'Face'),
+                dateAdded: face.dateAdded || new Date().toISOString(),
+                sampleCount: 0,
+                accessAreas: face.accessAreas || {
+                  bedroom: false,
+                  living_room: false,
+                  kitchen: false,
+                  front_door: false
+                }
+              };
+            }
           }));
-          setFaces(formattedData);
+          
+          setFaces(facesWithSamples);
           
           // Scroll to the bottom to show new faces
           setTimeout(() => {
@@ -1211,9 +1553,26 @@ export default function FacesScreen() {
     fetchFaces();
   }, []);
 
-  // Fetch faces on component mount and after registration
+  // Load server configuration on component mount
   useEffect(() => {
-    fetchFaces();
+    const loadConfig = async () => {
+      // Load server config
+      await loadServerUrl();
+      API_URL = SERVER_CONFIG.serverUrl;
+      console.log('Faces screen using server URL:', API_URL);
+      
+      // Load PI config
+      await loadPiConfig();
+      PI_CAMERA_IP = PI_CONFIG.ip;
+      PI_CAMERA_PORT = PI_CONFIG.port;
+      PI_SERVER_URL = PI_CONFIG.url;
+      console.log('Faces screen using PI URL:', PI_SERVER_URL);
+      
+      // Fetch faces after config is loaded
+      fetchFaces();
+    };
+    
+    loadConfig();
   }, []);
   
   const filteredFaces = faces.filter(face => {
@@ -1261,13 +1620,30 @@ export default function FacesScreen() {
         Alert.alert("Success", "Face registered successfully!");
         
         // Add the new face to our state
+        let newImageUri = null;
+        if (data.image && typeof data.image === 'string') {
+          if (data.image.startsWith('http')) {
+            newImageUri = data.image;
+          } else {
+            newImageUri = `${API_URL}${data.image}`;
+          }
+        } else {
+          newImageUri = getPlaceholderUrl(name);
+        }
+        
         const newFace = {
           id: data.id.toString(),
           name: name,
           role: role,
-          image: `${API_URL}${data.image}`,
+          image: newImageUri,
           dateAdded: new Date().toISOString(),
           sampleCount: 1,
+          accessAreas: {
+            bedroom: false,
+            living_room: false,
+            kitchen: false,
+            front_door: false
+          }
         };
         
         setFaces([...faces, newFace]);
@@ -1305,46 +1681,24 @@ export default function FacesScreen() {
     await fetchFaces();
   };
   
-  const renderFaceCard = ({ item }: { item: Face }) => (
-    <TouchableOpacity 
-      style={[styles.faceCard, { 
-        backgroundColor: getThemeColors(colorScheme).card, 
-        borderColor: getThemeColors(colorScheme).cardBorder 
-      }]}
-      onPress={() => handleFacePress(item)}
-    >
-      <Image source={{ uri: item.image }} style={styles.faceImage} />
-      <View style={[styles.roleTag, { backgroundColor: ROLES[item.role as keyof typeof ROLES] }]}>
-        <Text style={styles.roleText}>{item.role}</Text>
-      </View>
-      <View style={styles.faceInfo}>
-        <Text style={[styles.faceName, { color: getThemeColors(colorScheme).text }]}>{item.name}</Text>
-        <View style={styles.sampleInfo}>
-          <Ionicons name="images-outline" size={16} color={getThemeColors(colorScheme).gray} />
-          <Text style={[styles.sampleText, { color: getThemeColors(colorScheme).gray }]}>
-            {item.sampleCount} sample{item.sampleCount !== 1 ? 's' : ''}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-  
-  // Add back the handleFacePress function
+  // Update handleFacePress to directly open samples view
   const handleFacePress = (face: Face) => {
+    setSelectedFace(face);
+    setShowSamplesModal(true);
+  };
+
+  // Add new handler for long press
+  const handleFaceLongPress = (face: Face) => {
     Alert.alert(
       face.name,
-      `Role: ${face.role}\nSamples: ${face.sampleCount}`,
+      `Role: ${face.role}`,
       [
         {
-          text: "View Samples",
-          onPress: () => Alert.alert("Coming Soon", "This feature will be available soon."),
+          text: "Edit",
+          onPress: () => Alert.alert("Coming Soon", "Edit functionality will be available soon."),
         },
         {
-          text: "Add Samples",
-          onPress: () => handleAddSampleToFace(face),
-        },
-        {
-          text: "Delete",
+          text: "Delete Face",
           onPress: () => handleDeleteFace(face),
           style: "destructive"
         },
@@ -1355,87 +1709,69 @@ export default function FacesScreen() {
       ]
     );
   };
-  
-  // Add these functions before the handleFacePress function
-  const handleAddSampleToFace = (face: Face) => {
-    Alert.alert(
-      "Add Sample", 
-      `Add another sample image for ${face.name}`,
-      [
-        {
-          text: "Take Photo with Pi Camera",
-          onPress: () => {
-            setShowPictureCapture(true);
-            setNewFaceDetails({
-              ...newFaceDetails,
-              name: face.name,
-              role: face.role,
-              images: []
-            });
-          },
-        },
-        {
-          text: "Choose from Gallery",
-          onPress: async () => {
-            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            
-            if (!permissionResult.granted) {
-              Alert.alert("Permission Required", "You need to grant camera roll permissions to use this feature");
-              return;
-            }
-            
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-            });
-            
-            if (!result.canceled && result.assets[0].uri) {
-              const formData = new FormData();
-              formData.append('image', {
-                uri: result.assets[0].uri,
-                type: 'image/jpeg',
-                name: 'face.jpg'
-              } as unknown as Blob);
-              
-              try {
-                const response = await fetch(`${API_URL}/api/faces/${face.id}/images`, {
-                  method: 'POST',
-                  body: formData,
-                  headers: {
-                    'Content-Type': 'multipart/form-data',
-                  },
-                });
-                
-                if (response.ok) {
-                  Alert.alert("Success", "Sample image added successfully!");
-                  
-                  // Update the face's sample count in our state
-                  setFaces(faces.map(f => 
-                    f.id === face.id 
-                      ? {...f, sampleCount: f.sampleCount + 1}
-                      : f
-                  ));
-                } else {
-                  const errorData = await response.json();
-                  Alert.alert("Error", errorData.error || "Failed to add sample image");
-                }
-              } catch (error) {
-                console.error("Error adding sample:", error);
-                Alert.alert("Error", "Failed to communicate with server");
-              }
-            }
-          },
-        },
-        {
-          text: "Cancel",
-          style: "cancel"
-        }
-      ]
-    );
-  };
 
+  // Update the renderFaceCard to include better error handling
+  const renderFaceCard = ({ item }: { item: Face }) => (
+    <TouchableOpacity 
+      style={[styles.faceCard, { 
+        backgroundColor: Colors[colorScheme ?? 'light'].cardBackground, 
+        borderColor: Colors[colorScheme ?? 'light'].cardBorder 
+      }]}
+      onPress={() => handleFacePress(item)}
+      onLongPress={() => handleFaceLongPress(item)}
+      delayLongPress={500}
+    >
+      <Image 
+        source={{ uri: item.image }} 
+        style={styles.faceImage}
+        onError={(error) => {
+          console.error('Image loading error for face:', {
+            name: item.name,
+            imageUrl: item.image,
+            error: error.nativeEvent.error
+          });
+          // If image fails to load, update the face object to use placeholder
+          const placeholderUrl = getPlaceholderUrl(item.name);
+          setFaces(prevFaces => 
+            prevFaces.map(face => 
+              face.id === item.id 
+                ? {
+                    ...face,
+                    image: placeholderUrl
+                  }
+                : face
+            )
+          );
+        }}
+        defaultSource={{ uri: getPlaceholderUrl(item.name) }}
+        loadingIndicatorSource={{ uri: getPlaceholderUrl('Loading') }}
+      />
+      <View style={[styles.roleTag, { backgroundColor: ROLES[item.role as keyof typeof ROLES] }]}>
+        <Text style={styles.roleText}>{item.role}</Text>
+      </View>
+      <View style={styles.faceInfo}>
+        <Text style={[styles.faceName, { color: Colors[colorScheme ?? 'light'].text }]}>{item.name}</Text>
+        <View style={styles.sampleInfo}>
+          <Ionicons name="images-outline" size={16} color={Colors[colorScheme ?? 'light'].gray} />
+          <Text style={[styles.sampleText, { color: Colors[colorScheme ?? 'light'].gray }]}>
+            {item.sampleCount} sample{item.sampleCount !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+  
+  // Add new state for samples modal
+  const [selectedFace, setSelectedFace] = useState<Face | null>(null);
+  const [showSamplesModal, setShowSamplesModal] = useState(false);
+  
+  // Add this before the return statement
+  const handleUpdateSamples = () => {
+    // Refresh the faces list to update the sample count
+    fetchFaces();
+  };
+  
+  // Add new handler for deleting a face
   const handleDeleteFace = (face: Face) => {
     Alert.alert(
       "Confirm Deletion",
@@ -1476,25 +1812,25 @@ export default function FacesScreen() {
   };
   
   return (
-    <View style={[styles.container, { backgroundColor: getThemeColors(colorScheme).background }]}>
+    <View style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
       <View style={styles.header}>
         <View style={[styles.searchBar, { 
-          backgroundColor: getThemeColors(colorScheme).card,
-          borderColor: getThemeColors(colorScheme).cardBorder 
+          backgroundColor: Colors[colorScheme ?? 'light'].cardBackground,
+          borderColor: Colors[colorScheme ?? 'light'].cardBorder 
         }]}>
-          <Ionicons name="search" size={20} color={getThemeColors(colorScheme).gray} />
+          <Ionicons name="search" size={20} color={Colors[colorScheme ?? 'light'].gray} />
           <TextInput
-            style={[styles.searchInput, { color: getThemeColors(colorScheme).text }]}
+            style={[styles.searchInput, { color: Colors[colorScheme ?? 'light'].text }]}
             placeholder="Search faces..."
-            placeholderTextColor={getThemeColors(colorScheme).gray}
+            placeholderTextColor={Colors[colorScheme ?? 'light'].gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery !== '' && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={getThemeColors(colorScheme).gray} />
+              <Ionicons name="close-circle" size={20} color={Colors[colorScheme ?? 'light'].gray} />
             </TouchableOpacity>
           )}
         </View>
@@ -1505,8 +1841,8 @@ export default function FacesScreen() {
           label="All" 
           active={selectedRole === 'All'} 
           onPress={() => setSelectedRole('All')}
-          colorScheme={colorScheme}
-          color={getThemeColors(colorScheme).primary}
+          colorScheme={colorScheme ?? 'light'}
+          color={Colors[colorScheme ?? 'light'].primary}
         />
         {Object.keys(ROLES).map((role) => (
           <ScrollableRoleFilter
@@ -1514,7 +1850,7 @@ export default function FacesScreen() {
             label={role}
             active={selectedRole === role}
             onPress={() => setSelectedRole(role)}
-            colorScheme={colorScheme}
+            colorScheme={colorScheme ?? 'light'}
             color={ROLES[role as keyof typeof ROLES]}
           />
         ))}
@@ -1522,8 +1858,8 @@ export default function FacesScreen() {
       
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={getThemeColors(colorScheme).primary} />
-          <Text style={{ color: getThemeColors(colorScheme).text, marginTop: 10 }}>Loading...</Text>
+          <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].primary} />
+          <Text style={{ color: Colors[colorScheme ?? 'light'].text, marginTop: 10 }}>Loading...</Text>
         </View>
       ) : (
         <FlatList
@@ -1537,7 +1873,7 @@ export default function FacesScreen() {
           onRefresh={onRefresh}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
-              <Text style={{ color: getThemeColors(colorScheme).text }}>
+              <Text style={{ color: Colors[colorScheme ?? 'light'].text }}>
                 {searchQuery ? "No faces match your search" : "No faces registered yet"}
               </Text>
             </View>
@@ -1549,7 +1885,7 @@ export default function FacesScreen() {
         visible={showDetailsForm}
         onClose={() => setShowDetailsForm(false)}
         onNext={handleDetailsNext}
-        colorScheme={colorScheme}
+        colorScheme={colorScheme ?? 'light'}
       />
       
       <PictureCaptureModal
@@ -1558,11 +1894,11 @@ export default function FacesScreen() {
         faceDetails={newFaceDetails}
         onUpdateImages={handleUpdateImages}
         onSave={handleSaveFace}
-        colorScheme={colorScheme}
+        colorScheme={colorScheme ?? 'light'}
       />
       
       <TouchableOpacity
-        style={[styles.addButton, { backgroundColor: getThemeColors(colorScheme).primary }]}
+        style={[styles.addButton, { backgroundColor: Colors[colorScheme ?? 'light'].primary }]}
         onPress={handleAddNewFace}
         disabled={loading}
       >
@@ -1572,6 +1908,19 @@ export default function FacesScreen() {
           <Ionicons name="add" size={24} color="#fff" />
         )}
       </TouchableOpacity>
+      
+      {selectedFace && (
+        <FaceSamplesModal
+          visible={showSamplesModal}
+          onClose={() => {
+            setShowSamplesModal(false);
+            setSelectedFace(null);
+          }}
+          face={selectedFace}
+          colorScheme={colorScheme ?? 'light'}
+          onUpdateSamples={handleUpdateSamples}
+        />
+      )}
     </View>
   );
 }
@@ -1967,5 +2316,50 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  samplesContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  samplesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+  },
+  sampleWrapper: {
+    width: '48%',
+    aspectRatio: 1,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sampleImage: {
+    width: '100%',
+    height: '100%',
+  },
+  deleteSampleButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 15,
+    padding: 5,
+  },
+  addSampleButton: {
+    width: '48%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#ccc',
+    display: 'flex',  // Ensure flex display
+    marginBottom: 16, // Match the marginBottom of sampleWrapper
+  },
+  loader: {
+    marginTop: 20,
   },
 }); 

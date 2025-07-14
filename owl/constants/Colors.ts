@@ -3,42 +3,49 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-const tintColorLight = '#0070f3';
-const tintColorDark = '#60a5fa';
+const tintColorLight = '#2f95dc';
+const tintColorDark = '#fff';
 
 export default {
   light: {
-    text: '#1a1a1a',
-    background: '#ffffff',
+    text: '#000',
+    background: '#fff',
     tint: tintColorLight,
-    tabBackground: '#f5f5f5',
-    tabInactive: '#8e8e93',
-    card: '#ffffff',
-    cardBorder: '#e5e5e5',
+    tabIconDefault: '#ccc',
+    tabIconSelected: tintColorLight,
+    tabBackground: '#fff',
+    gray: '#666',
+    secondary: '#666',
+    cardBackground: '#fff',
+    cardBorder: '#e1e1e1',
     primary: '#0070f3',
-    secondary: '#3b82f6',
+    tertiary: '#8b5cf6',
     success: '#10b981',
-    danger: '#ef4444',
+    danger: '#dc3545',
     warning: '#f59e0b',
-    gray: '#6b7280',
     lightGray: '#e5e7eb',
     overlay: 'rgba(0,0,0,0.5)',
+    lightBackground: '#f3f4f6',
   },
   dark: {
-    text: '#ffffff',
-    background: '#121212',
+    text: '#fff',
+    background: '#000',
     tint: tintColorDark,
-    tabBackground: '#1e1e1e',
-    tabInactive: '#6b7280',
-    card: '#1e1e1e',
-    cardBorder: '#2e2e2e',
+    tabIconDefault: '#ccc',
+    tabIconSelected: tintColorDark,
+    tabBackground: '#000',
+    gray: '#999',
+    secondary: '#666',
+    cardBackground: '#1a1a1a',
+    cardBorder: '#333',
     primary: '#60a5fa',
-    secondary: '#3b82f6',
+    tertiary: '#a78bfa',
     success: '#10b981',
+    danger: '#ff4444',
     danger: '#ef4444',
     warning: '#f59e0b',
-    gray: '#9ca3af',
     lightGray: '#374151',
     overlay: 'rgba(0,0,0,0.7)',
+    lightBackground: '#26282c',
   },
 };

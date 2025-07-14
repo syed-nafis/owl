@@ -17,11 +17,10 @@ import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import { StatusBar } from 'expo-status-bar';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { SERVER_CONFIG, loadServerUrl } from '../../constants/Config';
 
-// Server configuration - using the same values as in index.tsx
-const HOME_SERVER_IP = '192.168.0.102'; // Your home server IP
-const HOME_SERVER_PORT = 9000; // Your home server port
-const SERVER_URL = `http://${HOME_SERVER_IP}:${HOME_SERVER_PORT}`;
+// Server configuration - using centralized config
+let SERVER_URL = SERVER_CONFIG.serverUrl;
 
 // Define the interface for video records
 interface VideoRecord {
@@ -33,6 +32,7 @@ interface VideoRecord {
   duration?: string | null;
   cameraIp?: string | null;
   timestamp?: string;
+  thumbnail?: string;
 }
 
 // Define interface for ScrollableFilter props
@@ -87,9 +87,20 @@ export default function RecordingsScreen() {
   // Use a safe color scheme that handles null/undefined
   const theme = colorScheme ?? 'light';
   
-  // Fetch videos on component mount
+  // Load server URL on component mount
   useEffect(() => {
-    fetchVideos();
+    const initializeAndFetch = async () => {
+      // First load server URL
+      await loadServerUrl();
+      // Update SERVER_URL with the latest server URL
+      SERVER_URL = SERVER_CONFIG.serverUrl;
+      console.log('Recordings screen using server URL:', SERVER_URL);
+      
+      // Then fetch videos
+      await fetchVideos();
+    };
+    
+    initializeAndFetch();
     
     // Set up a refresh interval (every 60 seconds)
     const interval = setInterval(() => {
@@ -101,6 +112,16 @@ export default function RecordingsScreen() {
   
   const fetchVideos = async () => {
     try {
+      setIsLoading(true);
+      console.log('Fetching videos from:', SERVER_URL);
+      
+      // Ensure we have a valid server URL
+      if (!SERVER_URL || SERVER_URL === 'http://localhost:9000') {
+        await loadServerUrl();
+        SERVER_URL = SERVER_CONFIG.serverUrl;
+        console.log('Updated server URL before fetch:', SERVER_URL);
+      }
+      
       // Fetch videos from server
       const response = await fetch(`${SERVER_URL}/videos-list`);
       
@@ -120,7 +141,8 @@ export default function RecordingsScreen() {
           created: video.created,
           duration: video.duration || formatDuration(estimateDuration(video.size)),
           cameraIp: video.cameraIp || 'Pi Camera',
-          timestamp: video.timestamp || video.created
+          timestamp: video.timestamp || video.created,
+          thumbnail: video.thumbnail
         }));
         
         setRecordings(videoRecords);
@@ -128,7 +150,7 @@ export default function RecordingsScreen() {
       }
     } catch (error) {
       console.error('Error fetching videos:', error);
-      Alert.alert('Error', 'Failed to fetch videos from server');
+      Alert.alert('Error', 'Failed to fetch videos from server. Pull down to refresh.');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -260,15 +282,21 @@ export default function RecordingsScreen() {
   };
 
   const renderRecordingItem = ({ item }: { item: VideoRecord }) => {
-    // Generate a thumbnail placeholder if not available
-    const thumbnailPlaceholder = `https://via.placeholder.com/400x225/333/fff?text=${encodeURIComponent(item.name.substring(0, 20))}`;
+    // Use the actual thumbnail if available, otherwise use placeholder
+    const thumbnailUrl = item.thumbnail 
+      ? `${SERVER_URL}${item.thumbnail}` // Prepend SERVER_URL only for actual thumbnails
+      : `https://via.placeholder.com/400x225/333/fff?text=${encodeURIComponent(item.name.substring(0, 20))}`;
     
     return (
       <TouchableOpacity 
         style={[styles.recordingCard, { backgroundColor: Colors[theme].card, borderColor: Colors[theme].cardBorder }]}
         onPress={() => handlePlayVideo(item)}
       >
-        <Image source={{ uri: thumbnailPlaceholder }} style={styles.thumbnail} />
+        <Image 
+          source={{ uri: thumbnailUrl }} 
+          style={styles.thumbnail}
+          resizeMode="cover"
+        />
         <View style={styles.cardOverlay}>
           <Text style={styles.duration}>{item.duration}</Text>
         </View>
@@ -572,5 +600,5 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     fontWeight: '600',
-  }
+  },
 }); 

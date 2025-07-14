@@ -11,6 +11,25 @@ This is the server component of the Owl Security System, a home security camera 
 - Timeline events for security monitoring
 - Mobile app integration
 
+## Directory Structure
+
+```
+server/
+├── scripts/          # Utility and setup scripts
+├── sql/             # Database schema and queries
+├── tests/           # Test files
+├── face_images/     # Face detection images
+├── models/          # AI models
+├── clips/           # Video clips
+├── thumbnails/      # Video thumbnails
+├── videos/          # Full video files
+├── server.js        # Main server application
+├── video_processor.py  # Video analysis engine
+├── mediapipe_face.py   # Face recognition system
+├── light_detection.py  # Smart lighting system
+└── README.md        # This file
+```
+
 ## Components
 
 - **Node.js Server**: Handles API requests, video uploads, and database operations
@@ -28,15 +47,15 @@ git clone https://github.com/yourusername/owl-security.git
 cd owl-security/server
 
 # Run the setup script
-chmod +x setup.sh
-./setup.sh
+chmod +x scripts/setup.sh
+./scripts/setup.sh
 ```
 
 ### Manual Setup
 
 1. Install MySQL and create the database:
    ```bash
-   mysql -u root -p < owl_security_db.sql
+   mysql -u root -p < sql/owl_security_db.sql
    ```
 
 2. Install Node.js dependencies:
@@ -75,6 +94,10 @@ For more details, see [README-face-detection.md](README-face-detection.md).
 ### Starting the Server
 
 ```bash
+# Start the server
+./scripts/start.sh
+
+# Or manually
 node server.js
 ```
 
@@ -85,10 +108,15 @@ source env/bin/activate
 python video_processor.py --video path/to/video.mp4 --camera-role front_door
 ```
 
-### Testing Face Detection
+### Running Tests
 
 ```bash
-python test_face_detection.py
+# Run all tests
+cd tests
+python -m pytest
+
+# Run specific tests
+python tests/test_face_detection.py
 ```
 
 ## API Endpoints

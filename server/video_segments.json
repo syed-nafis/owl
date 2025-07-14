@@ -78,5 +78,806 @@
     "cameraIp": "192.168.0.107",
     "hostname": "raspberrypi",
     "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-24T23-27-15-070Z_segment_20250624_142703.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-24T23-27-15-070Z_segment_20250624_142703.mp4",
+    "size": 2254316,
+    "timestamp": "2025-06-24T14:27:15.111906",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-06-35-089Z_segment_20250625_000436.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-06-35-089Z_segment_20250625_000436.mp4",
+    "size": 55350370,
+    "timestamp": "2025-06-25T00:06:36.862646",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-08-34-937Z_segment_20250625_000636.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-08-34-937Z_segment_20250625_000636.mp4",
+    "size": 69261348,
+    "timestamp": "2025-06-25T00:08:36.937815",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-10-35-141Z_segment_20250625_000836.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-10-35-141Z_segment_20250625_000836.mp4",
+    "size": 122698766,
+    "timestamp": "2025-06-25T00:10:36.984884",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-12-35-103Z_segment_20250625_001036.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-12-35-103Z_segment_20250625_001036.mp4",
+    "size": 91882249,
+    "timestamp": "2025-06-25T00:12:37.034000",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-37-14-058Z_segment_20250625_003515.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-37-14-058Z_segment_20250625_003515.mp4",
+    "size": 118109294,
+    "timestamp": "2025-06-25T00:37:15.953357",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-39-14-135Z_segment_20250625_003715.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-39-14-135Z_segment_20250625_003715.mp4",
+    "size": 123198349,
+    "timestamp": "2025-06-25T00:39:16.018751",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-41-14-133Z_segment_20250625_003916.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-41-14-133Z_segment_20250625_003916.mp4",
+    "size": 118121781,
+    "timestamp": "2025-06-25T00:41:16.041219",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-43-14-101Z_segment_20250625_004116.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-43-14-101Z_segment_20250625_004116.mp4",
+    "size": 92281756,
+    "timestamp": "2025-06-25T00:43:16.076534",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-45-14-201Z_segment_20250625_004316.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-45-14-201Z_segment_20250625_004316.mp4",
+    "size": 102869341,
+    "timestamp": "2025-06-25T00:45:16.152520",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-47-14-279Z_segment_20250625_004516.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-47-14-279Z_segment_20250625_004516.mp4",
+    "size": 98902561,
+    "timestamp": "2025-06-25T00:47:16.197037",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-49-14-298Z_segment_20250625_004716.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-49-14-298Z_segment_20250625_004716.mp4",
+    "size": 93958808,
+    "timestamp": "2025-06-25T00:49:16.277973",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-51-14-378Z_segment_20250625_004916.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-51-14-378Z_segment_20250625_004916.mp4",
+    "size": 119984448,
+    "timestamp": "2025-06-25T00:51:16.287240",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-53-14-535Z_segment_20250625_005116.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-53-14-535Z_segment_20250625_005116.mp4",
+    "size": 165763040,
+    "timestamp": "2025-06-25T00:53:16.312769",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-25T09-53-58-202Z_segment_20250625_005316.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-25T09-53-58-202Z_segment_20250625_005316.mp4",
+    "size": 68935968,
+    "timestamp": "2025-06-25T00:54:00.273384",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T01-39-54-722Z_segment_20250626_163754.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T01-39-54-722Z_segment_20250626_163754.mp4",
+    "size": 45635931,
+    "timestamp": "2025-06-26T16:39:54.647793",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T01-41-54-734Z_segment_20250626_163954.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T01-41-54-734Z_segment_20250626_163954.mp4",
+    "size": 53181032,
+    "timestamp": "2025-06-26T16:41:54.657392",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T01-46-24-087Z_segment_20250626_164423.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T01-46-24-087Z_segment_20250626_164423.mp4",
+    "size": 68120915,
+    "timestamp": "2025-06-26T16:46:23.973716",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T01-48-24-051Z_segment_20250626_164623.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T01-48-24-051Z_segment_20250626_164623.mp4",
+    "size": 55262584,
+    "timestamp": "2025-06-26T16:48:23.992780",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T01-50-24-262Z_segment_20250626_164823.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T01-50-24-262Z_segment_20250626_164823.mp4",
+    "size": 68469745,
+    "timestamp": "2025-06-26T16:50:23.999688",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T01-52-24-160Z_segment_20250626_165024.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T01-52-24-160Z_segment_20250626_165024.mp4",
+    "size": 74779724,
+    "timestamp": "2025-06-26T16:52:24.050572",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T02-50-52-758Z_segment_20250626_174852.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T02-50-52-758Z_segment_20250626_174852.mp4",
+    "size": 56378015,
+    "timestamp": "2025-06-26T17:50:52.657792",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T02-51-26-282Z_segment_20250626_175052.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T02-51-26-282Z_segment_20250626_175052.mp4",
+    "size": 15204542,
+    "timestamp": "2025-06-26T17:51:23.581578",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-27T09-58-55-569Z_segment_20250627_005811.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-27T09-58-55-569Z_segment_20250627_005811.mp4",
+    "size": 22175892,
+    "timestamp": "2025-06-27T00:58:55.514296",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T06-10-29-565Z_segment_20250627_211012.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T06-10-29-565Z_segment_20250627_211012.mp4",
+    "size": 13236957,
+    "timestamp": "2025-06-27T21:10:29.524862",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T06-16-04-809Z_segment_20250627_211404.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T06-16-04-809Z_segment_20250627_211404.mp4",
+    "size": 126658194,
+    "timestamp": "2025-06-27T21:16:04.401686",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T06-18-04-867Z_segment_20250627_211604.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T06-18-04-867Z_segment_20250627_211604.mp4",
+    "size": 113875762,
+    "timestamp": "2025-06-27T21:18:04.484588",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T06-20-04-912Z_segment_20250627_211804.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T06-20-04-912Z_segment_20250627_211804.mp4",
+    "size": 109602508,
+    "timestamp": "2025-06-27T21:20:04.559486",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T06-20-35-928Z_segment_20250627_212004.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T06-20-35-928Z_segment_20250627_212004.mp4",
+    "size": 20858259,
+    "timestamp": "2025-06-27T21:20:30.260699",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-17-44-599Z_segment_20250627_231544.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-17-44-599Z_segment_20250627_231544.mp4",
+    "size": 21840666,
+    "timestamp": "2025-06-27T23:17:44.654970",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-19-44-739Z_segment_20250627_231744.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-19-44-739Z_segment_20250627_231744.mp4",
+    "size": 16558798,
+    "timestamp": "2025-06-27T23:19:44.693727",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-21-44-661Z_segment_20250627_231944.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-21-44-661Z_segment_20250627_231944.mp4",
+    "size": 17801325,
+    "timestamp": "2025-06-27T23:21:44.708483",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-23-44-751Z_segment_20250627_232144.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-23-44-751Z_segment_20250627_232144.mp4",
+    "size": 17138235,
+    "timestamp": "2025-06-27T23:23:44.775236",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-24-16-454Z_segment_20250627_232344.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-24-16-454Z_segment_20250627_232344.mp4",
+    "size": 574074,
+    "timestamp": "2025-06-27T23:23:48.455198",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-47-52-518Z_segment_20250627_234552.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-47-52-518Z_segment_20250627_234552.mp4",
+    "size": 20903855,
+    "timestamp": "2025-06-27T23:47:52.525846",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-49-52-573Z_segment_20250627_234752.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-49-52-573Z_segment_20250627_234752.mp4",
+    "size": 19924437,
+    "timestamp": "2025-06-27T23:49:52.561020",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T08-51-37-625Z_segment_20250627_234952.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T08-51-37-625Z_segment_20250627_234952.mp4",
+    "size": 16872753,
+    "timestamp": "2025-06-27T23:51:37.660259",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T09-04-27-468Z_segment_20250628_000227.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T09-04-27-468Z_segment_20250628_000227.mp4",
+    "size": 23732169,
+    "timestamp": "2025-06-28T00:04:27.458051",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T09-06-27-551Z_segment_20250628_000427.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T09-06-27-551Z_segment_20250628_000427.mp4",
+    "size": 21453472,
+    "timestamp": "2025-06-28T00:06:27.509030",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T09-07-38-531Z_segment_20250628_000627.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T09-07-38-531Z_segment_20250628_000627.mp4",
+    "size": 12586200,
+    "timestamp": "2025-06-28T00:07:38.696422",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T09-32-23-728Z_segment_20250628_003023.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T09-32-23-728Z_segment_20250628_003023.mp4",
+    "size": 38683452,
+    "timestamp": "2025-06-28T00:32:23.782819",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T09-34-23-821Z_segment_20250628_003223.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T09-34-23-821Z_segment_20250628_003223.mp4",
+    "size": 31049241,
+    "timestamp": "2025-06-28T00:34:23.845359",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T09-34-42-039Z_segment_20250628_003423.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T09-34-42-039Z_segment_20250628_003423.mp4",
+    "size": 4505512,
+    "timestamp": "2025-06-28T00:34:42.225138",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T20-50-52-409Z_segment_20250628_115017.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T20-50-52-409Z_segment_20250628_115017.mp4",
+    "size": 16949083,
+    "timestamp": "2025-06-28T11:50:52.322875",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T20-52-27-776Z_segment_20250628_115217.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T20-52-27-776Z_segment_20250628_115217.mp4",
+    "size": 4644082,
+    "timestamp": "2025-06-28T11:52:27.753353",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T20-59-32-033Z_segment_20250628_115920.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T20-59-32-033Z_segment_20250628_115920.mp4",
+    "size": 5771636,
+    "timestamp": "2025-06-28T11:59:32.026851",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T21-02-56-616Z_segment_20250628_120248.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T21-02-56-616Z_segment_20250628_120248.mp4",
+    "size": 3394019,
+    "timestamp": "2025-06-28T12:02:56.617439",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T21-05-55-219Z_segment_20250628_120549.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T21-05-55-219Z_segment_20250628_120549.mp4",
+    "size": 2817784,
+    "timestamp": "2025-06-28T12:05:55.191778",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T21-06-55-656Z_segment_20250628_120642.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T21-06-55-656Z_segment_20250628_120642.mp4",
+    "size": 6734604,
+    "timestamp": "2025-06-28T12:06:55.643148",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T21-07-55-873Z_segment_20250628_120735.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T21-07-55-873Z_segment_20250628_120735.mp4",
+    "size": 10178221,
+    "timestamp": "2025-06-28T12:07:55.630495",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T21-29-49-350Z_segment_20250628_122941.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T21-29-49-350Z_segment_20250628_122941.mp4",
+    "size": 2383202,
+    "timestamp": "2025-06-28T12:29:49.233003",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T21-41-34-184Z_segment_20250628_124130.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T21-41-34-184Z_segment_20250628_124130.mp4",
+    "size": 1968723,
+    "timestamp": "2025-06-28T12:41:34.193179",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-28T21-57-44-270Z_segment_20250628_125729.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-28T21-57-44-270Z_segment_20250628_125729.mp4",
+    "size": 6336872,
+    "timestamp": "2025-06-28T12:57:44.311690",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T01-38-54-239Z_segment_20250628_163654.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T01-38-54-239Z_segment_20250628_163654.mp4",
+    "size": 26398234,
+    "timestamp": "2025-06-28T16:38:54.227909",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T01-40-56-869Z_segment_20250628_163854.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T01-40-56-869Z_segment_20250628_163854.mp4",
+    "size": 16672031,
+    "timestamp": "2025-06-28T16:40:54.247149",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T01-42-54-321Z_segment_20250628_164054.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T01-42-54-321Z_segment_20250628_164054.mp4",
+    "size": 22038855,
+    "timestamp": "2025-06-28T16:42:54.258329",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T01-44-54-259Z_segment_20250628_164254.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T01-44-54-259Z_segment_20250628_164254.mp4",
+    "size": 28328471,
+    "timestamp": "2025-06-28T16:44:54.297463",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T01-45-09-553Z_segment_20250628_164454.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T01-45-09-553Z_segment_20250628_164454.mp4",
+    "size": 4019432,
+    "timestamp": "2025-06-28T16:45:09.625349",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-00-25-150Z_segment_20250628_165825.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-00-25-150Z_segment_20250628_165825.mp4",
+    "size": 17203970,
+    "timestamp": "2025-06-28T17:00:25.289930",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-00-43-855Z_segment_20250628_170025.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-00-43-855Z_segment_20250628_170025.mp4",
+    "size": 2245829,
+    "timestamp": "2025-06-28T17:00:44.065770",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-06-23-243Z_segment_20250628_170423.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-06-23-243Z_segment_20250628_170423.mp4",
+    "size": 13645696,
+    "timestamp": "2025-06-28T17:06:23.406851",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-08-23-302Z_segment_20250628_170623.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-08-23-302Z_segment_20250628_170623.mp4",
+    "size": 14969217,
+    "timestamp": "2025-06-28T17:08:23.481196",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-09-05-896Z_segment_20250628_170823.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-09-05-896Z_segment_20250628_170823.mp4",
+    "size": 5599611,
+    "timestamp": "2025-06-28T17:09:06.096637",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-14-07-661Z_segment_20250628_171207.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-14-07-661Z_segment_20250628_171207.mp4",
+    "size": 15672103,
+    "timestamp": "2025-06-28T17:14:07.780993",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-15-56-633Z_segment_20250628_171407.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-15-56-633Z_segment_20250628_171407.mp4",
+    "size": 14623978,
+    "timestamp": "2025-06-28T17:15:56.823778",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-18-48-381Z_segment_20250628_171648.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-18-48-381Z_segment_20250628_171648.mp4",
+    "size": 16844899,
+    "timestamp": "2025-06-28T17:18:48.373941",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-20-48-245Z_segment_20250628_171848.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-20-48-245Z_segment_20250628_171848.mp4",
+    "size": 16862409,
+    "timestamp": "2025-06-28T17:20:48.408697",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-22-41-146Z_segment_20250628_172048.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-22-41-146Z_segment_20250628_172048.mp4",
+    "size": 15766471,
+    "timestamp": "2025-06-28T17:22:41.323551",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-26-14-490Z_segment_20250628_172414.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-26-14-490Z_segment_20250628_172414.mp4",
+    "size": 16637529,
+    "timestamp": "2025-06-28T17:26:14.645433",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-27-29-016Z_segment_20250628_172614.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-27-29-016Z_segment_20250628_172614.mp4",
+    "size": 10452725,
+    "timestamp": "2025-06-28T17:27:29.208704",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-36-03-998Z_segment_20250628_173404.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-36-03-998Z_segment_20250628_173404.mp4",
+    "size": 17977860,
+    "timestamp": "2025-06-28T17:36:04.111766",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-36-21-548Z_segment_20250628_173604.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-36-21-548Z_segment_20250628_173604.mp4",
+    "size": 2604009,
+    "timestamp": "2025-06-28T17:36:21.671600",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-39-47-261Z_segment_20250628_173747.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-39-47-261Z_segment_20250628_173747.mp4",
+    "size": 18299000,
+    "timestamp": "2025-06-28T17:39:47.373657",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-40-28-349Z_segment_20250628_173947.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-40-28-349Z_segment_20250628_173947.mp4",
+    "size": 6279970,
+    "timestamp": "2025-06-28T17:40:28.569267",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T02-45-42-992Z_segment_20250628_174343.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T02-45-42-992Z_segment_20250628_174343.mp4",
+    "size": 18542483,
+    "timestamp": "2025-06-28T17:45:43.193632",
+    "cameraIp": "192.168.0.107",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T05-47-55-442Z_segment_20250628_204555.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T05-47-55-442Z_segment_20250628_204555.mp4",
+    "size": 52034405,
+    "timestamp": "2025-06-28T20:47:55.325511",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T05-49-55-451Z_segment_20250628_204755.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T05-49-55-451Z_segment_20250628_204755.mp4",
+    "size": 41711368,
+    "timestamp": "2025-06-28T20:49:55.380818",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T05-51-17-996Z_segment_20250628_204955.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T05-51-17-996Z_segment_20250628_204955.mp4",
+    "size": 29679676,
+    "timestamp": "2025-06-28T20:51:17.972351",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T05-55-03-443Z_segment_20250628_205357.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T05-55-03-443Z_segment_20250628_205357.mp4",
+    "size": 27873522,
+    "timestamp": "2025-06-28T20:55:03.387100",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T05-56-50-444Z_segment_20250628_205507.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T05-56-50-444Z_segment_20250628_205507.mp4",
+    "size": 29105872,
+    "timestamp": "2025-06-28T20:56:50.422512",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T05-58-54-894Z_segment_20250628_205654.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T05-58-54-894Z_segment_20250628_205654.mp4",
+    "size": 31133066,
+    "timestamp": "2025-06-28T20:58:54.881495",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T06-00-54-949Z_segment_20250628_205854.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T06-00-54-949Z_segment_20250628_205854.mp4",
+    "size": 33619522,
+    "timestamp": "2025-06-28T21:00:54.926427",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T06-02-33-255Z_segment_20250628_210054.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T06-02-33-255Z_segment_20250628_210054.mp4",
+    "size": 31502497,
+    "timestamp": "2025-06-28T21:02:33.244248",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T06-04-36-983Z_segment_20250628_210236.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T06-04-36-983Z_segment_20250628_210236.mp4",
+    "size": 26987993,
+    "timestamp": "2025-06-28T21:04:36.993847",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T10-19-05-217Z_segment_20250629_011704.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T10-19-05-217Z_segment_20250629_011704.mp4",
+    "size": 90466719,
+    "timestamp": "2025-06-29T01:19:05.029509",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T10-21-05-607Z_segment_20250629_011905.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T10-21-05-607Z_segment_20250629_011905.mp4",
+    "size": 215215459,
+    "timestamp": "2025-06-29T01:21:05.087595",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T10-23-05-763Z_segment_20250629_012105.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T10-23-05-763Z_segment_20250629_012105.mp4",
+    "size": 218172698,
+    "timestamp": "2025-06-29T01:23:05.158649",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T10-25-05-806Z_segment_20250629_012305.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T10-25-05-806Z_segment_20250629_012305.mp4",
+    "size": 220862935,
+    "timestamp": "2025-06-29T01:25:05.221495",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
+  },
+  {
+    "filename": "upload_2025-06-29T10-27-05-849Z_segment_20250629_012505.mp4",
+    "path": "/Users/syed/code/micro/server/videos/upload_2025-06-29T10-27-05-849Z_segment_20250629_012505.mp4",
+    "size": 223518242,
+    "timestamp": "2025-06-29T01:27:05.274810",
+    "cameraIp": "172.20.10.4",
+    "hostname": "raspberrypi",
+    "duration": 0
   }
 ]

@@ -13,12 +13,19 @@ import { Ionicons } from '@expo/vector-icons';
 import MjpegViewer from '../../components/MjpegViewer';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import Colors from '../../constants/Colors';
+import { 
+  SERVER_CONFIG, 
+  loadServerUrl, 
+  PI_CONFIG, 
+  loadPiConfig,
+  connectToPi 
+} from '../../constants/Config';
 
 // Server and camera configuration
-const PI_CAMERA_IP = '192.168.0.107'; // Your Pi IP address
-const PI_SERVER_PORT = 8000; // Your Pi server port
-const HOME_SERVER_IP = '192.168.0.102'; // Your home server IP
-const HOME_SERVER_PORT = 9000; // Your home server port
+let PI_CAMERA_IP = PI_CONFIG.ip; // Your Pi IP address
+let PI_SERVER_PORT = PI_CONFIG.port; // Your Pi server port
+let PI_SERVER_URL = PI_CONFIG.url; // Full Pi server URL
+let HOME_SERVER_URL = SERVER_CONFIG.serverUrl;
 
 export default function LiveViewScreen() {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -30,6 +37,11 @@ export default function LiveViewScreen() {
     online: false,
     recording: false
   });
+  const [serverStatus, setServerStatus] = useState({
+    online: false,
+    lastChecked: new Date()
+  });
+  const [isRecordingLoading, setIsRecordingLoading] = useState(false);
   
   const colorScheme = useColorScheme();
   // Use a safe color scheme that handles null/undefined
@@ -37,13 +49,32 @@ export default function LiveViewScreen() {
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
-  // Check camera status on component mount
+  // Check camera status on component mount and load server URL
   useEffect(() => {
+    const loadConfig = async () => {
+      // Load server configuration
+      await loadServerUrl();
+      HOME_SERVER_URL = SERVER_CONFIG.serverUrl;
+      console.log('Live view screen using server URL:', HOME_SERVER_URL);
+      
+      // Load PI configuration
+      await loadPiConfig();
+      PI_CAMERA_IP = PI_CONFIG.ip;
+      PI_SERVER_PORT = PI_CONFIG.port;
+      PI_SERVER_URL = PI_CONFIG.url;
+      console.log('Live view screen using PI URL:', PI_SERVER_URL);
+      
+      // Check server connectivity after loading URL
+      checkServerStatus();
+    };
+    
+    loadConfig();
     checkCameraStatus();
     
-    // Poll for camera status every 5 seconds
+    // Poll for camera and server status every 5 seconds
     const interval = setInterval(() => {
       checkCameraStatus();
+      checkServerStatus();
     }, 5000);
     
     return () => clearInterval(interval);
@@ -51,23 +82,59 @@ export default function LiveViewScreen() {
   
   const checkCameraStatus = async () => {
     try {
-      const response = await fetch(`http://${PI_CAMERA_IP}:${PI_SERVER_PORT}/status`);
+      // Use the robust connection function - we don't need to log errors here
+      const response = await connectToPi('/status')
+        .catch(error => {
+          // Don't log the error here, it's already handled in connectToPi
+          setCameraStatus({
+            online: false,
+            recording: false
+          });
+          throw error;
+        }) as Response;
+      
       const data = await response.json();
       
+      // Store previous recording state to detect changes
+      const wasRecording = cameraStatus.recording;
+      
+      // Update camera status
       setCameraStatus({
         online: data.status === 'online',
         recording: data.recording
       });
       
-      // If already recording, reflect that in the UI
-      if (data.recording && !isRecording) {
-        setIsRecording(true);
+      // If recording state changed, update the UI state accordingly
+      if (data.recording !== wasRecording) {
+        console.log('Recording state changed:', data.recording);
+        setIsRecording(data.recording);
       }
     } catch (error) {
-      console.error('Failed to check camera status:', error);
-      setCameraStatus({
+      // Error handling is done in the catch block of connectToPi
+    }
+  };
+  
+  const checkServerStatus = async () => {
+    try {
+      const response = await fetch(`${HOME_SERVER_URL}/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setServerStatus({
+          online: true,
+          lastChecked: new Date()
+        });
+        console.log('Server is online:', data);
+      } else {
+        setServerStatus({
+          online: false,
+          lastChecked: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Failed to check server status:', error);
+      setServerStatus({
         online: false,
-        recording: false
+        lastChecked: new Date()
       });
     }
   };
@@ -76,17 +143,14 @@ export default function LiveViewScreen() {
     setIsLoading(true);
     
     try {
-      // Send request to start streaming
-      const response = await fetch(`http://${PI_CAMERA_IP}:${PI_SERVER_PORT}/start-stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      // Send request to start streaming using the robust connection function
+      const response = await connectToPi('/start-stream', {
+        method: 'POST'
+      }) as Response;
       
       if (response.ok) {
         // Set up the stream URL
-        const streamUrl = `http://${PI_CAMERA_IP}:${PI_SERVER_PORT}/stream`;
+        const streamUrl = `${PI_SERVER_URL}/stream`;
         setStreamUrl(streamUrl);
         setIsStreaming(true);
         fadeIn();
@@ -103,12 +167,9 @@ export default function LiveViewScreen() {
   
   const stopStreaming = async () => {
     try {
-      // Send request to stop streaming
-      await fetch(`http://${PI_CAMERA_IP}:${PI_SERVER_PORT}/stop-stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      // Send request to stop streaming using the robust connection function
+      await connectToPi('/stop-stream', {
+        method: 'POST'
       });
     } catch (error) {
       console.error('Error stopping stream:', error);
@@ -118,55 +179,120 @@ export default function LiveViewScreen() {
   };
   
   const toggleRecording = async () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
+    if (isRecordingLoading) return; // Prevent multiple clicks
+    
+    setIsRecordingLoading(true);
+    try {
+      if (isRecording) {
+        await stopRecording();
+      } else {
+        await startRecording();
+      }
+    } finally {
+      setIsRecordingLoading(false);
     }
   };
   
   const startRecording = async () => {
     try {
-      // Send request to start recording to home server
-      const response = await fetch(`http://${HOME_SERVER_IP}:${HOME_SERVER_PORT}/start-stream`, {
+      console.log('Attempting to start recording...');
+      
+      // Create a promise that rejects after timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timeout')), 5000);
+      });
+      
+      // Send request directly to Pi camera server
+      const fetchPromise = connectToPi('/start-recording', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ip: PI_CAMERA_IP })
+        }
       });
       
+      // Race the promises and explicitly type the response
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      
       if (response.ok) {
-        setIsRecording(true);
-        Alert.alert('Recording Started', 'Video is now being recorded and saved to server');
+        const data = await response.json() as { success: boolean; message?: string };
+        if (data.success) {
+          console.log('Start recording request successful');
+          setIsRecording(true);
+          
+          // Update the camera status to ensure UI consistency
+          setCameraStatus(prev => ({
+            ...prev,
+            recording: true
+          }));
+          
+          Alert.alert('Recording Started', 'Video is now being recorded');
+          
+          // Force check camera status to confirm the change
+          setTimeout(() => {
+            checkCameraStatus();
+          }, 1000);
+        } else {
+          throw new Error(data.message || 'Failed to start recording');
+        }
       } else {
-        const error = await response.text();
-        Alert.alert('Error', `Failed to start recording: ${error}`);
+        const errorText = await response.text();
+        console.error('Server returned error when starting recording:', errorText);
+        Alert.alert('Error', `Failed to start recording: ${errorText}`);
       }
     } catch (error) {
       console.error('Error starting recording:', error);
-      Alert.alert('Error', 'Could not start recording. Check server connection.');
+      Alert.alert('Error', 'Could not start recording. Check camera connection.');
     }
   };
   
   const stopRecording = async () => {
     try {
-      // Send request to stop recording
-      const response = await fetch(`http://${HOME_SERVER_IP}:${HOME_SERVER_PORT}/stop-stream`, {
+      console.log('Attempting to stop recording...');
+      
+      // Send request directly to Pi camera server
+      const response = await connectToPi('/stop-recording', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ip: PI_CAMERA_IP })
-      });
+        }
+      }) as Response;
       
       if (response.ok) {
-        setIsRecording(false);
-        Alert.alert('Recording Stopped', 'Video recording has been stopped');
+        const data = await response.json() as { success: boolean; message?: string };
+        if (data.success) {
+          console.log('Stop recording request successful');
+          setIsRecording(false);
+          
+          // Update the camera status to ensure UI consistency
+          setCameraStatus(prev => ({
+            ...prev,
+            recording: false
+          }));
+          
+          Alert.alert('Recording Stopped', 'Video recording has been stopped');
+          
+          // Force check camera status to confirm the change
+          setTimeout(() => {
+            checkCameraStatus();
+          }, 1000);
+        } else {
+          throw new Error(data.message || 'Failed to stop recording');
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('Server returned error when stopping recording:', errorText);
+        Alert.alert('Error', `Failed to stop recording: ${errorText}`);
       }
     } catch (error) {
       console.error('Error stopping recording:', error);
-      Alert.alert('Error', 'Could not stop recording');
+      Alert.alert('Error', 'Could not stop recording. Check camera connection.');
+      
+      // Reset recording state to ensure UI consistency
+      setIsRecording(false);
+      setCameraStatus(prev => ({
+        ...prev,
+        recording: false
+      }));
     }
   };
   
@@ -197,6 +323,28 @@ export default function LiveViewScreen() {
           </Text>
           
           <View style={styles.statusBox}>
+            <View style={styles.statusBadges}>
+              <View style={[
+                styles.statusBadge, 
+                { backgroundColor: cameraStatus.online ? '#4ade80' : '#f87171' }
+              ]}>
+                <Ionicons name="videocam" size={12} color="#fff" />
+                <Text style={styles.statusBadgeText}>
+                  {cameraStatus.online ? 'Camera Online' : 'Camera Offline'}
+                </Text>
+              </View>
+              
+              <View style={[
+                styles.statusBadge, 
+                { backgroundColor: serverStatus.online ? '#4ade80' : '#f87171' }
+              ]}>
+                <Ionicons name="server" size={12} color="#fff" />
+                <Text style={styles.statusBadgeText}>
+                  {serverStatus.online ? 'Server Online' : 'Server Offline'}
+                </Text>
+              </View>
+            </View>
+            
             <View style={styles.statusRow}>
               <Text style={[styles.statusLabel, { color: Colors[theme].text }]}>Status:</Text>
               <View style={styles.statusValueContainer}>
@@ -240,23 +388,22 @@ export default function LiveViewScreen() {
             )}
           </TouchableOpacity>
           
-          {cameraStatus.online && !cameraStatus.recording && (
+          {cameraStatus.online && (
             <TouchableOpacity 
               style={[styles.recordButton, { backgroundColor: Colors[theme].danger }]}
-              onPress={startRecording}
+              onPress={toggleRecording}
+              disabled={isRecordingLoading}
             >
-              <Ionicons name="radio-button-on" size={24} color="#fff" style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>Start Recording</Text>
-            </TouchableOpacity>
-          )}
-          
-          {cameraStatus.online && cameraStatus.recording && (
-            <TouchableOpacity 
-              style={[styles.recordButton, { backgroundColor: Colors[theme].danger }]}
-              onPress={stopRecording}
-            >
-              <Ionicons name="stop" size={24} color="#fff" style={styles.buttonIcon} />
-              <Text style={styles.buttonText}>Stop Recording</Text>
+              {isRecordingLoading ? (
+                <ActivityIndicator color="#fff" size="small" style={styles.buttonIcon} />
+              ) : isRecording || cameraStatus.recording ? (
+                <Ionicons name="stop" size={24} color="#fff" style={styles.buttonIcon} />
+              ) : (
+                <Ionicons name="radio-button-on" size={24} color="#fff" style={styles.buttonIcon} />
+              )}
+              <Text style={styles.buttonText}>
+                {isRecording || cameraStatus.recording ? 'Stop Recording' : 'Start Recording'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -269,9 +416,20 @@ export default function LiveViewScreen() {
             />
             <View style={styles.statusBar}>
               <View style={styles.statusItem}>
-                <View style={[styles.statusDot, { backgroundColor: isRecording ? Colors[theme].danger : Colors[theme].success }]} />
+                <View style={[styles.statusDot, { 
+                  backgroundColor: isRecordingLoading 
+                    ? Colors[theme].warning 
+                    : (isRecording || cameraStatus.recording) 
+                      ? Colors[theme].danger 
+                      : Colors[theme].success 
+                }]} />
                 <Text style={[styles.statusText, { color: Colors[theme].text }]}>
-                  {isRecording ? 'Recording' : 'Live'}
+                  {isRecordingLoading 
+                    ? 'Changing...' 
+                    : (isRecording || cameraStatus.recording) 
+                      ? 'Recording' 
+                      : 'Live'
+                  }
                 </Text>
               </View>
               <Text style={[styles.cameraName, { color: Colors[theme].text }]}>
@@ -296,8 +454,11 @@ export default function LiveViewScreen() {
                 isRecording && { backgroundColor: Colors[theme].danger }
               ]} 
               onPress={toggleRecording}
+              disabled={isRecordingLoading}
             >
-              {isRecording ? (
+              {isRecordingLoading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : isRecording ? (
                 <Ionicons name="stop" size={28} color="#fff" />
               ) : (
                 <Ionicons name="radio-button-on" size={28} color="#fff" />
@@ -343,6 +504,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
+  },
+  statusBadges: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   statusRow: {
     flexDirection: 'row',
