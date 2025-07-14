@@ -136,7 +136,7 @@ npx expo start
 #### 1. Start Server
 ```bash
 cd server
-python server.js
+npm start
 ```
 
 #### 2. Start Mobile App
